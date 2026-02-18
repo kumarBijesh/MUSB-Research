@@ -1,0 +1,336 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -----------------------------------------------------------------------------
+// USER & AUTH (NextAuth.js Adapter Models)
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  PARTICIPANT
+  COORDINATOR
+  PI
+  DATA_MANAGER
+  SPONSOR
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?   // For credentials provider
+  role          UserRole  @default(PARTICIPANT)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  participant   Participant? // Link to clinical data if role is PARTICIPANT
+  messagesSent  Message[]    @relation("Sender")
+  messagesRec   Message[]    @relation("Receiver")
+  auditEvents   AuditEvent[]
+  notifications Notification[]
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.String
+  access_token      String? @db.String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.String
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// -----------------------------------------------------------------------------
+// CLINICAL DOMAIN MODELS
+// -----------------------------------------------------------------------------
+
+enum StudyStatus {
+  DRAFT
+  RECRUITING
+  ACTIVE
+  COMPLETED
+  CLOSED
+}
+
+model Study {
+  id             String      @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  description    String
+  condition      String?
+  location       String?     // "Remote", "Hybrid", or City
+  compensation   String?
+  status         StudyStatus @default(DRAFT)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  leadImage      String?
+  
+  // Relations
+  participants   Participant[]
+  forms          FormTemplate[]
+  consentVersions ConsentVersion[]
+  tasks          Task[]
+}
+
+enum ParticipantStatus {
+  LEAD
+  SCREENED
+  CONSENTED
+  ENROLLED
+  ACTIVE
+  COMPLETED
+  WITHDRAWN
+}
+
+model Participant {
+  id            String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String            @unique @db.ObjectId
+  user          User              @relation(fields: [userId], references: [id])
+  
+  studyId       String?           @db.ObjectId
+  study         Study?            @relation(fields: [studyId], references: [id])
+
+  status        ParticipantStatus @default(LEAD)
+  dateOfBirth   DateTime?
+  timezone      String            @default("UTC")
+  phone         String?
+  
+  notes         String?
+
+  // Relations
+  screener      ScreenerResponse?
+  consents      ConsentSignature[]
+  tasks         TaskInstance[]
+  forms         FormInstance[]
+  documents     Document[]
+  adverseEvents AdverseEvent[]
+}
+
+// -----------------------------------------------------------------------------
+// SCREENING & CONSENT
+// -----------------------------------------------------------------------------
+
+model ScreenerResponse {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  participantId String      @unique @db.ObjectId
+  participant   Participant @relation(fields: [participantId], references: [id])
+  
+  responses     Json        // Key-value pairs of answers
+  isEligible    Boolean
+  completedAt   DateTime    @default(now())
+}
+
+model ConsentVersion {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  studyId     String   @db.ObjectId
+  study       Study    @relation(fields: [studyId], references: [id])
+  
+  version     String   // e.g "1.0"
+  content     String   // markdown or HTML
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  signatures  ConsentSignature[]
+}
+
+model ConsentSignature {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  participantId    String         @db.ObjectId
+  participant      Participant    @relation(fields: [participantId], references: [id])
+  
+  consentVersionId String         @db.ObjectId
+  consentVersion   ConsentVersion @relation(fields: [consentVersionId], references: [id])
+
+  signedAt         DateTime       @default(now())
+  signatureBlob    String?        // Base64 or URL to image
+  pdfUrl           String?
+  ipAddress        String?
+}
+
+// -----------------------------------------------------------------------------
+// TASKS & FORMS (ePRO)
+// -----------------------------------------------------------------------------
+
+enum TaskType {
+  FORM
+  UPLOAD
+  NON_INTERACTIVE // e.g. "Read Instructions"
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+  MISSED
+}
+
+model Task {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  studyId     String   @db.ObjectId
+  study       Study    @relation(fields: [studyId], references: [id])
+  
+  title       String
+  description String?
+  type        TaskType
+  
+  dueDayOffset Int     // Days from enrollment (e.g. 0, 30, 60)
+  windowDays   Int     // +/- days available
+
+  formTemplateId String? @db.ObjectId
+  formTemplate   FormTemplate? @relation(fields: [formTemplateId], references: [id])
+
+  instances   TaskInstance[]
+}
+
+model TaskInstance {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  participantId String      @db.ObjectId
+  participant   Participant @relation(fields: [participantId], references: [id])
+  
+  taskId        String      @db.ObjectId
+  task          Task        @relation(fields: [taskId], references: [id])
+
+  availableDate DateTime
+  dueDate       DateTime
+  completedDate DateTime?
+  status        TaskStatus  @default(PENDING)
+
+  formInstance  FormInstance?
+}
+
+model FormTemplate {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  studyId     String   @db.ObjectId
+  study       Study    @relation(fields: [studyId], references: [id])
+  
+  title       String
+  schema      Json     // JSON Schema for the form
+  uiSchema    Json?    // UI Schema (if needed)
+  
+  tasks       Task[]
+  instances   FormInstance[]
+}
+
+model FormInstance {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  participantId  String       @db.ObjectId
+  participant    Participant  @relation(fields: [participantId], references: [id])
+  
+  templateId     String       @db.ObjectId
+  template       FormTemplate @relation(fields: [templateId], references: [id])
+  
+  taskInstanceId String?      @unique @db.ObjectId
+  taskInstance   TaskInstance? @relation(fields: [taskInstanceId], references: [id])
+
+  content        Json         // The actual answers
+  submittedAt    DateTime     @default(now())
+}
+
+// -----------------------------------------------------------------------------
+// COMMUNICATION & FILES
+// -----------------------------------------------------------------------------
+
+model Message {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  senderId    String   @db.ObjectId
+  sender      User     @relation("Sender", fields: [senderId], references: [id])
+  
+  receiverId  String?  @db.ObjectId // If null, broadcast? prefer explicit lists usually
+  receiver    User?    @relation("Receiver", fields: [receiverId], references: [id])
+
+  content     String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Document {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  participantId String      @db.ObjectId
+  participant   Participant @relation(fields: [participantId], references: [id])
+  
+  filename      String
+  url           String
+  uploadedAt    DateTime    @default(now())
+  category      String?     // e.g. "Lab Report", "ID"
+}
+
+model Notification {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id])
+  
+  title       String
+  message     String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// -----------------------------------------------------------------------------
+// SAFETY & AUDIT
+// -----------------------------------------------------------------------------
+
+enum AESeverity {
+  MILD
+  MODERATE
+  SEVERE
+  LIFE_THREATENING
+}
+
+model AdverseEvent {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  participantId String      @db.ObjectId
+  participant   Participant @relation(fields: [participantId], references: [id])
+  
+  description   String
+  severity      AESeverity
+  onsetDate     DateTime
+  reportedAt    DateTime    @default(now())
+  status        String      // "Under Review", "Resolved"
+}
+
+model AuditEvent {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String?  @db.ObjectId
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  action      String   // e.g. "USER_LOGIN", "CONSENT_SIGNED"
+  resource    String?  // ID of affected resource
+  details     Json?
+  timestamp   DateTime @default(now())
+  ipAddress   String?
+}
