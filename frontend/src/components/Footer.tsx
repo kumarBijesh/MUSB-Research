@@ -23,21 +23,12 @@ export default function Footer() {
                     {/* LEFT COLUMN: Logo & Contact */}
                     <div className="lg:col-span-4 space-y-8">
                         <Link href="/" className="flex items-center gap-3 group mb-6">
-                            {/* Simulated Swirl Logo */}
-                            <div className="relative w-10 h-10 flex items-center justify-center">
-                                <div className="absolute inset-0 rounded-full border-2 border-t-transparent border-cyan-400 animate-[spin_3s_linear_infinite]" />
-                                <div className="absolute inset-2 rounded-full border-2 border-b-transparent border-white animate-[spin_4s_linear_infinite_reverse]" />
-                                <div className="w-2 h-2 rounded-full bg-cyan-400" />
-                            </div>
-
-                            <div className="flex flex-col">
-                                <span className="font-black text-xl tracking-tighter leading-none text-white">
-                                    MUSB
-                                </span>
-                                <span className="text-[10px] font-bold uppercase tracking-[0.2em] leading-none text-cyan-400">
-                                    Research
-                                </span>
-                            </div>
+                            <img
+                                src="/musb research.png"
+                                alt="MUSB Research Logo"
+                                className="h-12 w-auto object-contain"
+                                loading="lazy"
+                            />
                         </Link>
 
                         <div className="space-y-4">

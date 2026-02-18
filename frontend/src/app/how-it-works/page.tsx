@@ -70,31 +70,34 @@ export default function HowItWorks() {
                     <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-cyan-500/50 to-transparent -translate-x-1/2" />
 
                     <div className="space-y-12 md:space-y-24">
-                        {steps.map((step, index) => (
-                            <div key={index} className={`flex flex-col md:flex-row gap-8 items-center ${index % 2 === 0 ? 'md:flex-row-reverse' : ''}`}>
+                        {steps.map((step, index) => {
+                            const Icon = step.icon;
+                            return (
+                                <div key={index} className={`flex flex-col md:flex-row gap-8 items-center ${index % 2 !== 0 ? 'md:flex-row-reverse' : ''}`}>
 
-                                {/* Content Side */}
-                                <div className="flex-1 md:w-1/2 md:flex md:justify-center">
-                                    <div className={`
-                                        glass p-8 rounded-3xl border border-white/5 relative group hover:border-white/10 transition-all duration-500
-                                        ${index % 2 === 0 ? 'md:text-left' : 'md:text-right'}
-                                     `}>
-                                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <h3 className={`text-2xl font-black text-white mb-4 italic ${step.color}`}>{step.title}</h3>
-                                        <p className="text-slate-400 leading-relaxed font-medium">{step.description}</p>
+                                    {/* Content Side */}
+                                    <div className="flex-1 md:w-1/2 md:flex md:justify-center">
+                                        <div className={`
+                                            glass p-8 rounded-3xl border border-white/5 relative group hover:border-white/10 transition-all duration-500 max-w-lg
+                                            ${index % 2 !== 0 ? 'md:text-left' : 'md:text-right'}
+                                         `}>
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <h3 className={`text-2xl font-black text-white mb-4 italic ${step.color}`}>{step.title}</h3>
+                                            <p className="text-slate-400 leading-relaxed font-medium">{step.description}</p>
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Icon Marker (Center) */}
-                                <div className="relative z-10 flex items-center justify-center w-16 h-16 rounded-2xl glass border border-white/10 shadow-lg shadow-black/50">
-                                    <div className={`absolute inset-0 rounded-2xl ${step.bg} blur-xl opacity-50`} />
-                                    <step.icon size={28} className={step.color} />
-                                </div>
+                                    {/* Icon Marker (Center) */}
+                                    <div className="relative z-10 flex items-center justify-center w-20 h-20 rounded-2xl glass border border-white/10 shadow-lg shadow-black/50 shrink-0">
+                                        <div className={`absolute inset-0 rounded-2xl ${step.bg} blur-xl opacity-50`} />
+                                        <Icon size={32} className={step.color} />
+                                    </div>
 
-                                {/* Empty Side for Balance */}
-                                <div className="flex-1 md:w-1/2" />
-                            </div>
-                        ))}
+                                    {/* Empty Side for Balance */}
+                                    <div className="flex-1 md:w-1/2" />
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
