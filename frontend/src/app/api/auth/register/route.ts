@@ -1,70 +1,52 @@
-import { NextResponse } from "next/server";
-// import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-// const prisma = new PrismaClient(); // DB Removed
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const schema = z.object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Invalid email address"),
-    // password: z.string()
-    //     .min(12, "Password must be at least 12 characters")
-    //     .max(32, "Password must not exceed 32 characters")
-    //     .regex(/[A-Z]/, "Must contain at least one uppercase letter")
-    //     .regex(/[a-z]/, "Must contain at least one lowercase letter")
-    //     .regex(/[0-9]/, "Must contain at least one number")
-    //     .regex(/[^A-Za-z0-9]/, "Must contain at least one special character"),
-    // role: z.enum(["PARTICIPANT", "RESEARCHER"]), // simplified for signup
+    password: z
+        .string()
+        .min(12, "Password must be at least 12 characters")
+        .regex(/[A-Z]/, "Must contain an uppercase letter")
+        .regex(/[a-z]/, "Must contain a lowercase letter")
+        .regex(/[0-9]/, "Must contain a number")
+        .regex(/[^A-Za-z0-9]/, "Must contain a special character"),
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { email } = schema.parse(body);
 
-        /*
-        const existingUser = await prisma.user.findUnique({
-            where: { email },
+        // Validate input
+        const parsed = schema.safeParse(body);
+        if (!parsed.success) {
+            const msg = parsed.error.issues[0]?.message || "Validation failed";
+            return NextResponse.json({ detail: msg }, { status: 422 });
+        }
+
+        const { name, email, password } = parsed.data;
+
+        // Proxy to FastAPI backend
+        const backendRes = await fetch(`${API_URL}/api/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password }),
         });
 
-        if (existingUser) {
+        const data = await backendRes.json();
+
+        if (!backendRes.ok) {
             return NextResponse.json(
-                { error: "User already exists with this email." },
-                { status: 400 }
+                { detail: data.detail || "Registration failed." },
+                { status: backendRes.status }
             );
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const user = await prisma.user.create({
-            data: {
-                email,
-                passwordHash: hashedPassword,
-                role: role === "RESEARCHER" ? "PI" : "PARTICIPANT", // Basic mapping
-                accounts: {
-                    create: {
-                        type: "credentials",
-                        provider: "credentials",
-                        providerAccountId: email,
-                    },
-                },
-            },
-        });
-        */
-
-        // Mock user creation for dev
-        const user = {
-            id: "mock-id",
-            email: email,
-            role: "PARTICIPANT"
-        };
-
-
-        return NextResponse.json(user);
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: (error as z.ZodError).issues[0].message }, { status: 400 });
-        }
-        return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+        return NextResponse.json(data, { status: 201 });
+    } catch (err) {
+        console.error("[register route error]", err);
+        return NextResponse.json({ detail: "Server error during registration." }, { status: 500 });
     }
 }

@@ -14,6 +14,8 @@ import {
     Clock
 } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const participants = [
     { id: "P1001", name: "John Doe", email: "john@example.com", status: "Active", study: "NAD+ Longevity", adherence: "98%", lastActive: "10m ago" },
@@ -34,6 +36,7 @@ const statusStyles: any = {
 
 export default function ParticipantsPage() {
     const [filter, setFilter] = useState("All");
+    const router = useRouter();
 
     return (
         <div className="space-y-8">
@@ -72,7 +75,11 @@ export default function ParticipantsPage() {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                         {participants.map((p) => (
-                            <tr key={p.id} className="hover:bg-cyan-500/[0.02] transition-colors cursor-pointer group">
+                            <tr
+                                key={p.id}
+                                onClick={() => router.push(`/admin/participants/${p.id}`)}
+                                className="hover:bg-cyan-500/[0.02] transition-colors cursor-pointer group"
+                            >
                                 <td className="py-5 px-8">
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-500 group-hover:text-cyan-400 group-hover:bg-cyan-500/10 transition-all">

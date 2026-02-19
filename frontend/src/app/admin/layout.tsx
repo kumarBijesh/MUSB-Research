@@ -1,8 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Briefcase, Users, Calendar, Package, Database, ShieldAlert, FileText, Settings, Search, Bell, UserCircle } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Calendar, Package, Database, ShieldAlert, FileText, Settings, Search, Bell, UserCircle, LogOut } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
 
 const navItems = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -17,6 +19,27 @@ const navItems = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const router = useRouter();
+    const { data: session, status } = useSession();
+
+    useEffect(() => {
+        // Only redirect if we are NOT on the login page
+        // This allows a logged-in Sponsor to visit /admin/login to switch accounts
+        if (pathname !== "/admin/login" && status === "authenticated" && session?.user) {
+            const role = (session.user as any).role;
+            // Redirect unauthorized roles to their correct portals
+            if (role === "SPONSOR") {
+                router.replace("/sponsor/dashboard");
+            } else if (role === "PARTICIPANT") {
+                router.replace("/dashboard/participant");
+            }
+        }
+    }, [session, status, router, pathname]);
+
+    // If on the login page, render only the children (login form) without the dashboard shell
+    if (pathname === "/admin/login") {
+        return <>{children}</>;
+    }
 
     return (
         <div className="flex h-screen bg-[#020617] text-slate-200">
@@ -39,8 +62,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 key={item.name}
                                 href={item.href}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group ${isActive
-                                        ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/5"
-                                        : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent"
+                                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/5"
+                                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent"
                                     }`}
                             >
                                 <item.icon size={20} className={isActive ? "text-cyan-400" : "text-slate-500 group-hover:text-slate-400"} />
@@ -81,9 +104,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <div className="h-6 w-px bg-slate-800" />
                         <div className="flex items-center gap-3">
                             <div className="text-right">
-                                <p className="text-xs font-bold text-white leading-none mb-1">Alex Johnson</p>
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Lead Coordinator</p>
+                                <p className="text-xs font-bold text-white leading-none mb-1">{session?.user?.name || "User"}</p>
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{(session?.user as any)?.role || "Coordinator"}</p>
                             </div>
+                            <button
+                                onClick={() => signOut({ callbackUrl: '/admin/login' })}
+                                className="p-2 text-slate-500 hover:text-red-400 transition-colors"
+                                title="Sign Out"
+                            >
+                                <LogOut size={20} />
+                            </button>
                             <UserCircle size={32} className="text-slate-700 hover:text-cyan-500 transition-colors cursor-pointer" />
                         </div>
                     </div>

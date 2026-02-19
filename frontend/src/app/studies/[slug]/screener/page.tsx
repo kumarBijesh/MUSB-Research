@@ -214,6 +214,15 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                                 <p className="text-xs text-slate-500 mt-2">Auto-filled from your account.</p>
                             </div>
                             <div>
+                                <label className="block text-sm font-bold text-slate-400 mb-2">Phone Number</label>
+                                <input
+                                    type="tel"
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-cyan-500 outline-none transition-colors"
+                                    placeholder="(555) 123-4567"
+                                    onChange={(e) => handleAnswer("phone", e.target.value)}
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-sm font-bold text-slate-400 mb-2">Preferred Warning Call Time</label>
                                 <select
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-cyan-500 outline-none transition-colors"

@@ -5,9 +5,10 @@ import { useState, useEffect } from "react";
 import { Menu, X, ArrowRight } from "lucide-react";
 
 const links = [
-    { name: "Clinical Trials", href: "/studies" },
+    { name: "Studies", href: "/studies" },
     { name: "How It Works", href: "/how-it-works" },
-    { name: "About Us", href: "/about" },
+    { name: "Privacy / Data Use", href: "/privacy" },
+    { name: "Help / FAQ", href: "/help" },
 ];
 
 export default function Navbar() {
@@ -21,13 +22,6 @@ export default function Navbar() {
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
-
-    const links = [
-        { name: "Studies", href: "/studies" },
-        { name: "How it works", href: "/how-it-works" },
-        { name: "Privacy / Data use", href: "/privacy" },
-        { name: "Help / FAQ", href: "/help" },
-    ];
 
     return (
         <nav className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 ${isScrolled

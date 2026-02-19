@@ -12,6 +12,7 @@ import {
     Globe,
     Lock
 } from "lucide-react";
+import Link from "next/link";
 
 const studies = [
     {
@@ -64,9 +65,9 @@ export default function AdminStudiesPage() {
                     <h1 className="text-3xl font-black text-white italic tracking-tight">Clinical Studies</h1>
                     <p className="text-slate-500 mt-2 font-medium">Design, launch, and monitor your decentralized trials.</p>
                 </div>
-                <button className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-cyan-600/20 transition-all flex items-center gap-2">
+                <Link href="/admin/studies/new" className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-cyan-600/20 transition-all flex items-center gap-2">
                     <Plus size={18} /> New Study
-                </button>
+                </Link>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
