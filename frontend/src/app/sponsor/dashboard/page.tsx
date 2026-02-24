@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import {
     BarChart3, Users, FileText, Bell, ChevronRight, TrendingUp,
     Activity, Clock, DollarSign, Download, Eye, AlertTriangle,
     CheckCircle2, FlaskConical, Target, Calendar, MessageSquare,
     LogOut, ChevronDown, Shield, PieChart, ArrowUpRight, ArrowDownRight,
-    Microscope, HeartPulse
+    Microscope, HeartPulse, X, Loader2, ExternalLink, Globe
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
+import { AdminAuth } from "@/lib/portal-auth";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -81,10 +83,106 @@ const aeStatus: Record<string, string> = {
 };
 
 export default function SponsorDashboard() {
+    const router = useRouter();
+
+    // ── Per-tab auth: reads from THIS TAB's sessionStorage only ──
+    const portalSession = typeof window !== "undefined" ? AdminAuth.get() : null;
+    const sponsorUser = portalSession?.user;
+
     const [activeTab, setActiveTab] = useState<"overview" | "participants" | "safety" | "documents" | "reports">("overview");
-    const study = sponsoredStudies[0];
-    const enrollmentPct = Math.round((study.enrolled / study.target) * 100);
-    const budgetPct = Math.round((study.spent / study.budget) * 100);
+    const [stats, setStats] = useState<any>(null);
+    const [studies, setStudies] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(3);
+
+    // ── RBAC Guard ──
+    useEffect(() => {
+        const session = AdminAuth.get();
+        if (!session || session.user.role !== "SPONSOR") {
+            router.replace("/sponsor/login");
+        }
+    }, [router]);
+
+    const handleSignOut = async () => {
+        AdminAuth.clear();
+        await signOut({ callbackUrl: "/sponsor/login" });
+    };
+
+    // Mock participants with PII for export (Special Sponsor Request)
+    const exportParticipants = [
+        { name: "James Wilson", email: "j.wilson@teleworm.com", id: "P-001", status: "Active" },
+        { name: "Sarah Jenkins", email: "s.jenkins@rhyta.com", id: "P-002", status: "Active" },
+        { name: "Michael Chen", email: "m.chen@jourrapide.com", id: "P-003", status: "On Hold" },
+        { name: "Elena Rodriguez", email: "e.rodriguez@dayrep.com", id: "P-004", status: "Active" },
+        { name: "David Thompson", email: "d.thompson@armyspy.com", id: "P-005", status: "Completed" },
+    ];
+
+    const handleExportReport = () => {
+        setIsExporting(true);
+        try {
+            const activeStudy = studies[0] || sponsoredStudies[0];
+            const studyTitle = activeStudy.title;
+
+            // CSV content (Special Sponsor Request: Name, Email, Study Title)
+            let csvContent = `STUDY SUMMARY: ${studyTitle}\n`;
+            csvContent += `Status: ${activeStudy.status}\n`;
+            csvContent += `Progress: ${Math.round((activeStudy.enrolledCount / activeStudy.participantCount) * 100) || 0}% Enrollment\n\n`;
+            csvContent += "Participant Name,Email,Study Title\n";
+
+            // CSV Rows
+            exportParticipants.forEach(p => {
+                csvContent += `"${p.name}","${p.email}","${studyTitle}"\n`;
+            });
+
+            // Trigger Download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Study_Report_${studyTitle.replace(/\s+/g, '_')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            alert("Study report generated successfully. Your download has started.");
+        } catch (error) {
+            console.error("Export failed:", error);
+            alert("Failed to generate report. Please try again.");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const notifications = [
+        { id: 1, title: "Dr. Sarah Mitchell", role: "COORDINATOR", message: "New participant enrollment in NAD+ trial pending document review.", time: "10m ago", color: "text-pink-400", bg: "bg-pink-400/10", read: false },
+        { id: 2, title: "Astra Biotech", role: "SPONSOR", message: "Sponsor has requested an updated safety report for the lung cancer study.", time: "2h ago", color: "text-amber-400", bg: "bg-amber-400/10", read: false },
+        { id: 3, title: "System Analytics", role: "AUTOMATED", message: "Automated audit log sync completed for all active sites.", time: "5h ago", color: "text-slate-400", bg: "bg-slate-400/10", read: true },
+    ];
+
+    const fetchData = async () => {
+        try {
+            const [statsRes, studiesRes] = await Promise.all([
+                fetch("/api/proxy/sponsor/stats"),
+                fetch("/api/proxy/sponsor/studies")
+            ]);
+
+            if (statsRes.ok) setStats(await statsRes.json());
+            if (studiesRes.ok) setStudies(await studiesRes.json());
+        } catch (error) {
+            console.error("Error fetching sponsor data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const study = studies[0] || sponsoredStudies[0]; // Fallback to mock for demo UI consistency if empty
+    const enrollmentPct = stats ? Math.round((stats.enrolledParticipants / stats.totalParticipants) * 100) : 0;
     const maxWeekly = Math.max(...weeklyEnrollment);
 
     return (
@@ -98,27 +196,74 @@ export default function SponsorDashboard() {
                         <div className="w-px h-6 bg-slate-800" />
                         <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
                             <Microscope size={12} className="text-amber-400" />
-                            <span className="text-amber-400 text-[10px] font-black uppercase tracking-widest">Sponsor Portal</span>
+                            <span className="text-amber-400 text-[13px] font-black uppercase tracking-widest">Sponsor Portal</span>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <button className="relative p-2 text-slate-500 hover:text-white transition-colors">
-                            <Bell size={18} />
-                            <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />
-                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                                className={`relative p-2 transition-colors rounded-xl ${isNotificationsOpen ? "bg-amber-500/20 text-white" : "text-slate-500 hover:text-white hover:bg-white/5"}`}
+                            >
+                                <Bell size={18} />
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-[#020617] animate-pulse" />
+                                )}
+                            </button>
+
+                            {/* Notifications Dropdown (Medical Alerts style) */}
+                            {isNotificationsOpen && (
+                                <div className="absolute right-0 mt-4 w-96 bg-[#0a1120] border border-white/10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                                    <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-sm font-black text-white uppercase tracking-widest">Site Intelligence</h3>
+                                            <p className="text-[13px] text-slate-500 font-bold uppercase mt-1">2 Pending Communications</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setUnreadCount(0)}
+                                            className="text-[13px] font-black text-cyan-400 uppercase tracking-widest hover:text-cyan-300 transition-colors"
+                                        >
+                                            Mark all read
+                                        </button>
+                                    </div>
+                                    <div className="max-h-[400px] overflow-y-auto bg-slate-900/20">
+                                        {notifications.map((n) => (
+                                            <div key={n.id} className={`p-6 border-b border-white/5 hover:bg-white/[0.02] transition-all relative ${!n.read ? "before:absolute before:left-0 before:top-6 before:bottom-6 before:w-1 before:bg-cyan-500 shadow-[inset_10px_0_20px_-10px_rgba(6,182,212,0.1)]" : ""}`}>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[13px] font-black text-white uppercase tracking-tight">{n.title}</span>
+                                                        <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black tracking-widest uppercase ${n.bg} ${n.color}`}>
+                                                            {n.role}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[13px] font-bold text-slate-600 uppercase italic whitespace-nowrap">{n.time}</span>
+                                                </div>
+                                                <p className="text-[13px] font-bold text-slate-400 leading-relaxed">
+                                                    {n.message}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="p-4 bg-slate-950/50 text-center border-t border-white/5">
+                                        <button className="text-[13px] font-black text-slate-500 uppercase tracking-[0.3em] hover:text-white transition-colors">Protocol Inbox</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="flex items-center gap-3 pl-4 border-l border-white/5">
                             <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-sm">
                                 {sponsorInfo.name[0]}
                             </div>
                             <div className="hidden md:block">
                                 <p className="text-sm font-bold text-white leading-none">{sponsorInfo.name}</p>
-                                <p className="text-[10px] text-slate-500 mt-0.5">{sponsorInfo.org}</p>
+                                <p className="text-[13px] text-slate-500 mt-0.5">{sponsorInfo.org}</p>
                             </div>
                             <ChevronDown size={14} className="text-slate-600" />
                         </div>
                         <button
-                            onClick={() => signOut({ callbackUrl: '/sponsor/login' })}
+                            onClick={handleSignOut}
                             className="p-2 text-slate-600 hover:text-red-400 transition-colors"
                             title="Sign Out">
                             <LogOut size={16} />
@@ -138,16 +283,172 @@ export default function SponsorDashboard() {
                         </p>
                     </div>
                     <div className="flex gap-3">
-                        <Link href="/sponsor/studies/new" className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-600/20">
+                        <Link href="/studies" target="_blank" className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-white/10 hover:border-indigo-500/30 text-indigo-400 text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all">
+                            <ExternalLink size={14} /> Visit Public Directory
+                        </Link>
+                        <Link href="/sponsor/dashboard/new-study" className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-600/20">
                             <FlaskConical size={14} /> Launch New Study
                         </Link>
-                        <button className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-white/10 hover:border-amber-500/30 text-slate-300 text-xs font-bold uppercase tracking-widest rounded-xl transition-all">
-                            <Download size={14} /> Export Report
+                        <button
+                            onClick={handleExportReport}
+                            disabled={isExporting}
+                            className={`flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-white/10 hover:border-amber-500/30 text-slate-300 text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                            {isExporting ? "Generating..." : "Export Report"}
                         </button>
                     </div>
                 </div>
 
-                {/* ... (KPI Cards and Tabs remain same) ... */}
+                {/* ── Tabs Navigation ── */}
+                <div className="flex items-center gap-1 mb-8 bg-slate-950/50 p-1 rounded-2xl border border-white/5 w-fit">
+                    {[
+                        { id: "overview", label: "Overview", icon: PieChart },
+                        { id: "participants", label: "Participants", icon: Users },
+                        { id: "safety", label: "Safety", icon: Shield },
+                        { id: "documents", label: "Documents", icon: FileText },
+                        { id: "reports", label: "Reports", icon: BarChart3 },
+                    ].map((t) => (
+                        <button
+                            key={t.id}
+                            onClick={() => setActiveTab(t.id as any)}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-black uppercase tracking-widest transition-all ${activeTab === t.id ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20" : "text-slate-500 hover:text-white hover:bg-white/5"}`}
+                        >
+                            <t.icon size={14} /> {t.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* ═══════════════════════════════════════════════════════
+                    OVERVIEW TAB
+                ═══════════════════════════════════════════════════════ */}
+                {activeTab === "overview" && (
+                    <div className="space-y-8 animate-in fade-in duration-500">
+                        {/* KPI Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {[
+                                { label: "Active Studies", value: stats?.activeStudies || 0, trend: "+1 this month", icon: FlaskConical, color: "text-amber-400", bg: "bg-amber-500/10" },
+                                { label: "Total Participants", value: stats?.totalParticipants || 0, trend: "Across all protocols", icon: Users, color: "text-cyan-400", bg: "bg-cyan-500/10" },
+                                { label: "Enrolled Rate", value: `${enrollmentPct}%`, trend: "Target: 85% avg", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+                                { label: "Data Integrity", value: "99.8%", trend: "HIPAA Compliant", icon: Shield, color: "text-indigo-400", bg: "bg-indigo-500/10" },
+                            ].map((kpi, idx) => (
+                                <div key={idx} className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40 relative overflow-hidden group">
+                                    <div className={`absolute top-0 right-0 w-24 h-24 ${kpi.bg} rounded-full blur-[40px] translate-x-1/2 -translate-y-1/2`} />
+                                    <div className="flex justify-between items-start mb-4 relative z-10">
+                                        <div className={`p-3 rounded-2xl ${kpi.bg} ${kpi.color}`}>
+                                            <kpi.icon size={20} />
+                                        </div>
+                                    </div>
+                                    <div className="relative z-10">
+                                        <h3 className="text-3xl font-black text-white italic tracking-tighter">{kpi.value}</h3>
+                                        <p className="text-[13px] font-black uppercase tracking-widest text-slate-500 mt-1">{kpi.label}</p>
+                                        <p className="text-[13px] font-bold text-slate-600 mt-4 flex items-center gap-1">
+                                            <ArrowUpRight size={10} className="text-emerald-500" /> {kpi.trend}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Studies List */}
+                        <div className="glass border border-white/5 rounded-3xl overflow-hidden bg-slate-900/40">
+                            <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between">
+                                <h2 className="text-sm font-black text-white uppercase tracking-[0.2em] italic">My Pipeline</h2>
+                                <button className="text-[13px] font-black uppercase text-amber-500 hover:text-amber-400 transition-colors">View All Protocols</button>
+                            </div>
+                            <div className="divide-y divide-white/5">
+                                {loading ? (
+                                    <div className="p-12 text-center text-slate-500">
+                                        <Activity size={24} className="animate-spin mx-auto mb-4 opacity-20" />
+                                        <p className="text-[13px] font-bold uppercase tracking-widest">Hydrating Dashboard...</p>
+                                    </div>
+                                ) : studies.length === 0 ? (
+                                    <div className="p-12 text-center text-slate-500">
+                                        <p className="text-[13px] font-bold uppercase tracking-widest mb-4">No studies launched yet</p>
+                                        <Link href="/sponsor/dashboard/new-study" className="text-amber-500 font-bold hover:underline">Launch your first protocol</Link>
+                                    </div>
+                                ) : studies.map((s, idx) => (
+                                    <div key={idx} className="p-8 hover:bg-white/[0.02] transition-all group flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-16 h-16 rounded-2xl bg-slate-950 flex items-center justify-center border border-white/5 group-hover:border-amber-500/30 transition-all">
+                                                <HeartPulse size={24} className="text-amber-500/50" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-3 mb-1">
+                                                    <h3 className="text-lg font-black text-white group-hover:text-amber-400 transition-colors uppercase italic">{s.title}</h3>
+                                                    <span className={`px-2 py-0.5 rounded text-[13px] font-black tracking-widest uppercase border ${s.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-800 text-slate-400 border-white/10"}`}>
+                                                        {s.status}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-4 text-[13px] font-medium text-slate-500">
+                                                    <span className="flex items-center gap-1.5"><Target size={12} /> {s.targetParticipants || s.target} Target</span>
+                                                    <span className="flex items-center gap-1.5"><Calendar size={12} /> Launched {new Date(s.createdAt).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-8">
+                                            <div className="text-right hidden lg:block">
+                                                <p className="text-[13px] font-black uppercase text-slate-600 tracking-widest mb-1">Enrollment</p>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.round((s.enrolledCount / s.participantCount) * 100) || 0}%` }} />
+                                                    </div>
+                                                    <span className="text-[13px] font-bold text-white">{Math.round((s.enrolledCount / s.participantCount) * 100) || 0}%</span>
+                                                </div>
+                                            </div>
+                                            <Link href={`/sponsor/studies/${s.slug || s.id}`} className="px-6 py-2.5 bg-slate-900 border border-white/10 hover:border-amber-500/30 text-white text-[13px] font-black uppercase tracking-widest rounded-xl transition-all">
+                                                Manage Study
+                                            </Link>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Recent Activity */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div className="lg:col-span-2 glass border border-white/5 rounded-3xl p-8 bg-slate-900/40">
+                                <div className="flex justify-between items-center mb-8">
+                                    <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] italic">Intelligence Feed</h3>
+                                    <MessageSquare size={16} className="text-slate-600" />
+                                </div>
+                                <div className="space-y-6">
+                                    {recentActivity.map((activity) => (
+                                        <div key={activity.id} className="flex gap-4 group">
+                                            <div className={`p-2 rounded-xl bg-slate-950 border border-white/5 ${activity.color} shrink-0`}>
+                                                <activity.icon size={16} />
+                                            </div>
+                                            <div className="flex-1 border-b border-white/5 pb-4 group-last:border-0">
+                                                <p className="text-[13px] text-slate-300 font-medium leading-tight mb-1">{activity.message}</p>
+                                                <p className="text-[13px] text-slate-600 font-bold uppercase tracking-widest">{activity.time}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="glass border border-white/5 rounded-3xl p-8 bg-slate-900/40">
+                                <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] italic mb-8">Quick Actions</h3>
+                                <div className="space-y-3">
+                                    {[
+                                        { label: "Request IRB Review", icon: Shield },
+                                        { label: "Invite Coordinators", icon: Users },
+                                        { label: "Financial Summary", icon: DollarSign },
+                                        { label: "Contact Support", icon: MessageSquare },
+                                    ].map((action, i) => (
+                                        <button key={i} className="w-full flex items-center justify-between p-4 rounded-2xl bg-slate-950 border border-white/5 hover:border-amber-500/30 transition-all group">
+                                            <div className="flex items-center gap-3">
+                                                <action.icon size={16} className="text-slate-600 group-hover:text-amber-500 transition-colors" />
+                                                <span className="text-[13px] font-bold text-slate-400 group-hover:text-white transition-colors">{action.label}</span>
+                                            </div>
+                                            <ChevronRight size={14} className="text-slate-700 group-hover:text-amber-500" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ═══════════════════════════════════════════════════════
                     PARTICIPANTS TAB
@@ -156,7 +457,7 @@ export default function SponsorDashboard() {
                     <div className="glass border border-white/5 rounded-2xl p-6">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-lg font-black text-white">Participant Overview</h2>
-                            <p className="text-xs text-slate-500">Anonymized view — ID numbers only</p>
+                            <p className="text-[13px] text-slate-500">Anonymized view — ID numbers only</p>
                         </div>
 
                         {/* Funnel */}
@@ -170,7 +471,7 @@ export default function SponsorDashboard() {
                             ].map((f) => (
                                 <div key={f.label} className={`bg-gradient-to-br ${f.color} rounded-xl p-4 text-center border border-white/5`}>
                                     <p className="text-2xl font-black text-white">{f.value}</p>
-                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mt-1">{f.label}</p>
+                                    <p className="text-[13px] text-slate-400 uppercase tracking-widest font-bold mt-1">{f.label}</p>
                                 </div>
                             ))}
                         </div>
@@ -178,42 +479,42 @@ export default function SponsorDashboard() {
                         {/* Status Breakdown & Adherence Charts */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                             <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5">
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3">By Status</p>
+                                <p className="text-[13px] text-slate-500 font-bold uppercase tracking-widest mb-3">By Status</p>
                                 {[
                                     { label: "Active", count: 81, pct: 93 },
                                     { label: "On Hold", count: 5, pct: 5.7 },
                                     { label: "Withdrawn", count: study.withdrawn, pct: 6.9 },
                                 ].map((s) => (
                                     <div key={s.label} className="flex items-center gap-3 mb-2">
-                                        <p className="text-xs text-slate-400 w-20 shrink-0">{s.label}</p>
+                                        <p className="text-[13px] text-slate-400 w-20 shrink-0">{s.label}</p>
                                         <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                                             <div className="h-full bg-amber-500 rounded-full" style={{ width: `${s.pct}%` }} />
                                         </div>
-                                        <p className="text-xs font-bold text-white w-6 text-right">{s.count}</p>
+                                        <p className="text-[13px] font-bold text-white w-6 text-right">{s.count}</p>
                                     </div>
                                 ))}
                             </div>
                             <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5">
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3">By Age Group</p>
+                                <p className="text-[13px] text-slate-500 font-bold uppercase tracking-widest mb-3">By Age Group</p>
                                 {[
                                     { label: "50–60", count: 52, pct: 60 },
                                     { label: "61–70", count: 28, pct: 32 },
                                     { label: "71–80", count: 7, pct: 8 },
                                 ].map((s) => (
                                     <div key={s.label} className="flex items-center gap-3 mb-2">
-                                        <p className="text-xs text-slate-400 w-20 shrink-0">{s.label}</p>
+                                        <p className="text-[13px] text-slate-400 w-20 shrink-0">{s.label}</p>
                                         <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                                             <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${s.pct}%` }} />
                                         </div>
-                                        <p className="text-xs font-bold text-white w-6 text-right">{s.count}</p>
+                                        <p className="text-[13px] font-bold text-white w-6 text-right">{s.count}</p>
                                     </div>
                                 ))}
                             </div>
                             <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5">
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3">Adherence</p>
+                                <p className="text-[13px] text-slate-500 font-bold uppercase tracking-widest mb-3">Adherence</p>
                                 <div className="text-center py-4">
                                     <p className="text-4xl font-black text-emerald-400">{study.adherence}%</p>
-                                    <p className="text-xs text-slate-500 mt-1">Overall task completion rate</p>
+                                    <p className="text-[13px] text-slate-500 mt-1">Overall task completion rate</p>
                                 </div>
                                 <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                                     <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${study.adherence}%` }} />
@@ -227,7 +528,7 @@ export default function SponsorDashboard() {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="border-b border-white/5 text-[10px] uppercase tracking-widest text-slate-500">
+                                        <tr className="border-b border-white/5 text-[13px] uppercase tracking-widest text-slate-500">
                                             <th className="py-3 font-bold">Participant ID</th>
                                             <th className="py-3 font-bold">Status</th>
                                             <th className="py-3 font-bold">Enrolled Date</th>
@@ -247,7 +548,7 @@ export default function SponsorDashboard() {
                                             <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                                                 <td className="py-3 font-mono text-cyan-400">{p.id}</td>
                                                 <td className="py-3">
-                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${p.status === "Active" ? "bg-emerald-500/10 text-emerald-400" : p.status === "Completed" ? "bg-blue-500/10 text-blue-400" : "bg-amber-500/10 text-amber-400"}`}>
+                                                    <span className={`px-2 py-1 rounded text-[13px] font-bold uppercase ${p.status === "Active" ? "bg-emerald-500/10 text-emerald-400" : p.status === "Completed" ? "bg-blue-500/10 text-blue-400" : "bg-amber-500/10 text-amber-400"}`}>
                                                         {p.status}
                                                     </span>
                                                 </td>
@@ -259,7 +560,7 @@ export default function SponsorDashboard() {
                                                 </td>
                                                 <td className="py-3 font-bold text-white">{p.adherence}%</td>
                                                 <td className="py-3 text-right">
-                                                    <button className="text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-colors">
+                                                    <button className="text-[13px] font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-colors">
                                                         View Data
                                                     </button>
                                                 </td>
@@ -285,7 +586,7 @@ export default function SponsorDashboard() {
                             ].map((s) => (
                                 <div key={s.label} className={`glass border border-${s.color}-500/10 rounded-2xl p-6 text-center`}>
                                     <p className={`text-4xl font-black text-${s.color}-400`}>{s.value}</p>
-                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-2">{s.label}</p>
+                                    <p className="text-[13px] text-slate-500 font-bold uppercase tracking-widest mt-2">{s.label}</p>
                                 </div>
                             ))}
                         </div>
@@ -298,23 +599,23 @@ export default function SponsorDashboard() {
                                 <thead>
                                     <tr className="border-b border-white/5">
                                         {["AE ID", "Participant", "Description", "Severity", "Date", "Status"].map((h) => (
-                                            <th key={h} className="text-left text-[10px] font-black text-slate-500 uppercase tracking-widest px-6 py-3">{h}</th>
+                                            <th key={h} className="text-left text-[13px] font-black text-slate-500 uppercase tracking-widest px-6 py-3">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {adverseEvents.map((ae) => (
                                         <tr key={ae.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
-                                            <td className="px-6 py-4 text-xs font-bold text-amber-400">{ae.id}</td>
-                                            <td className="px-6 py-4 text-xs text-slate-400">{ae.participant}</td>
-                                            <td className="px-6 py-4 text-xs text-slate-300">{ae.description}</td>
+                                            <td className="px-6 py-4 text-[13px] font-bold text-amber-400">{ae.id}</td>
+                                            <td className="px-6 py-4 text-[13px] text-slate-400">{ae.participant}</td>
+                                            <td className="px-6 py-4 text-[13px] text-slate-300">{ae.description}</td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border rounded-md ${severity[ae.severity]}`}>
+                                                <span className={`px-2 py-0.5 text-[13px] font-black uppercase tracking-widest border rounded-md ${severity[ae.severity]}`}>
                                                     {ae.severity}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-xs text-slate-500">{ae.date}</td>
-                                            <td className={`px-6 py-4 text-xs font-bold ${aeStatus[ae.status]}`}>{ae.status}</td>
+                                            <td className="px-6 py-4 text-[13px] text-slate-500">{ae.date}</td>
+                                            <td className={`px-6 py-4 text-[13px] font-bold ${aeStatus[ae.status]}`}>{ae.status}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -330,7 +631,7 @@ export default function SponsorDashboard() {
                     <div className="glass border border-white/5 rounded-2xl overflow-hidden">
                         <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center">
                             <h2 className="text-sm font-black text-white uppercase tracking-widest">Study Documents</h2>
-                            <span className="text-xs text-slate-500">Read-only access</span>
+                            <span className="text-[13px] text-slate-500">Read-only access</span>
                         </div>
                         <div className="divide-y divide-white/5">
                             {documents.map((doc) => (
@@ -341,7 +642,7 @@ export default function SponsorDashboard() {
                                         </div>
                                         <div>
                                             <p className="text-sm font-bold text-white">{doc.name}</p>
-                                            <p className="text-[10px] text-slate-500 mt-0.5">{doc.type} · {doc.size} · Uploaded {doc.date}</p>
+                                            <p className="text-[13px] text-slate-500 mt-0.5">{doc.type} · {doc.size} · Uploaded {doc.date}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -373,17 +674,17 @@ export default function SponsorDashboard() {
                                         </div>
                                         <div className="flex-1">
                                             <h3 className="text-sm font-black text-white mb-1">{r.title}</h3>
-                                            <p className="text-xs text-slate-500 mb-3">{r.desc}</p>
-                                            <p className="text-[10px] text-slate-600 flex items-center gap-1">
+                                            <p className="text-[13px] text-slate-500 mb-3">{r.desc}</p>
+                                            <p className="text-[13px] text-slate-600 flex items-center gap-1">
                                                 <Clock size={10} /> {r.date}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
-                                        <button className="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-white border border-white/5 hover:border-white/20 rounded-lg transition-all flex items-center justify-center gap-1">
+                                        <button className="flex-1 py-2 text-[13px] font-bold text-slate-400 hover:text-white border border-white/5 hover:border-white/20 rounded-lg transition-all flex items-center justify-center gap-1">
                                             <Eye size={12} /> Preview
                                         </button>
-                                        <button className="flex-1 py-2 text-xs font-bold text-amber-400 hover:text-amber-300 border border-amber-500/20 hover:border-amber-500/40 rounded-lg transition-all flex items-center justify-center gap-1">
+                                        <button className="flex-1 py-2 text-[13px] font-bold text-amber-400 hover:text-amber-300 border border-amber-500/20 hover:border-amber-500/40 rounded-lg transition-all flex items-center justify-center gap-1">
                                             <Download size={12} /> Download PDF
                                         </button>
                                     </div>

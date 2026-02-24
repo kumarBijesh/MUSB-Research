@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.auth import get_current_user, require_admin
+from app.utils.security import encrypt_data, decrypt_data
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
@@ -31,8 +32,8 @@ def _map_doc(doc: dict) -> DocumentOut:
         id=str(doc["_id"]),
         participantId=doc["participantId"],
         uploadedBy=doc.get("uploadedBy", ""),
-        filename=doc["filename"],
-        url=doc["url"],
+        filename=decrypt_data(doc["filename"]),
+        url=decrypt_data(doc["url"]),
         category=doc.get("category"),
         uploadedAt=doc["uploadedAt"],
     )
@@ -79,8 +80,8 @@ async def upload_document(
     doc = {
         "participantId": participant_id,
         "uploadedBy": current_user.user_id,
-        "filename": body.filename,
-        "url": body.url,
+        "filename": encrypt_data(body.filename),
+        "url": encrypt_data(body.url),
         "category": body.category or "OTHER",
         "uploadedAt": now,
     }

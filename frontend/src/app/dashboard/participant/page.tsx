@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { ParticipantAuth } from "@/lib/portal-auth";
 import Link from "next/link";
 import {
     Clock,
@@ -20,21 +20,27 @@ import {
     TrendingUp,
     ArrowRight,
     BookOpen,
+    Loader2,
 } from "lucide-react";
 
-// ─── Mock Study Data (shown only if participant is enrolled) ─────────────────
-const MOCK_ENROLLED = false; // flip to true once backend wires up enrollment
-
+// ─── Constants ───────────────────────────────────────────────────────────────
 const todayTasks = [
-    { id: 1, title: "Morning Supplement Log", study: "NAD+ Longevity Trial", time: "10:00 AM", status: "overdue" },
-    { id: 2, title: "Daily Symptoms Check-in", study: "NAD+ Longevity Trial", time: "8:00 PM", status: "pending" },
-    { id: 3, title: "Weekly Energy Survey", study: "NAD+ Longevity Trial", time: "11:59 PM", status: "pending" },
+    { id: 1, title: "Morning Supplement Log", study: "NAD+ Longevity Trial", time: "10:00 AM", status: "overdue", estTime: "2 mins", dueDate: "Today" },
+    { id: 2, title: "Daily Symptoms Check-in", study: "NAD+ Longevity Trial", time: "8:00 PM", status: "pending", estTime: "5 mins", dueDate: "Today" },
+    { id: 3, title: "Weekly Energy Survey", study: "NAD+ Longevity Trial", time: "11:59 PM", status: "pending", estTime: "15 mins", dueDate: "Feb 23" },
 ];
 
 const upcomingEvents = [
     { day: "21 Feb", label: "Baseline Blood Panel Due", color: "cyan" },
     { day: "28 Feb", label: "Week 2 Check-in Visit", color: "indigo" },
     { day: "10 Mar", label: "Kit Resupply Shipment", color: "amber" },
+];
+
+const supplementSchedule = [
+    { id: 'S1', name: 'NAD+ Supplement (Capsule)', dose: '250mg', time: '08:00 AM', taken: true },
+    { id: 'S2', name: 'Multivitamin', dose: '1 Tablet', time: '08:00 AM', taken: true },
+    { id: 'S3', name: 'NAD+ Supplement (Capsule)', dose: '250mg', time: '02:00 PM', taken: false },
+    { id: 'S4', name: 'Omega-3 (Fish Oil)', dose: '1000mg', time: '08:00 PM', taken: false },
 ];
 
 // ─── Countdown Hook ───────────────────────────────────────────────────────────
@@ -56,275 +62,267 @@ function useCountdown(targetDays: number) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ParticipantDashboard() {
-    const { data: session } = useSession();
     const time = useCountdown(12);
 
-    const firstName = session?.user?.name?.split(" ")[0] || "there";
+    // Read the strictly isolated sessionStorage for this specific tab
+    const [participantSession, setParticipantSession] = useState<{ token: string, user: any } | null>(null);
+    const [participant, setParticipant] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [taskStates, setTaskStates] = useState(todayTasks);
+    const [completingId, setCompletingId] = useState<number | null>(null);
+    const [isStudyComplete] = useState(false);
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(2);
+
+    const notifications = [
+        { id: 1, title: "Dr. Sarah Mitchell", role: "COORDINATOR", message: "Your latest blood work results are ready for review. Please check the Documents tab.", time: "10m ago", color: "text-pink-400", bg: "bg-pink-400/10", read: false },
+        { id: 2, title: "Lab Support", role: "AUTOMATED", message: "The week 2 bio-kit shipment has been dispatched to your home address.", time: "2h ago", color: "text-cyan-400", bg: "bg-cyan-400/10", read: false },
+        { id: 3, title: "Study System", role: "AUTOMATED", message: "Your afternoon supplement log for 'NAD+ Longevity' was saved successfully.", time: "5h ago", color: "text-slate-400", bg: "bg-slate-400/10", read: true },
+    ];
+
+    useEffect(() => {
+        const pAuth = typeof window !== "undefined" ? ParticipantAuth.get() : null;
+        setParticipantSession(pAuth);
+
+        const timeout = setTimeout(() => {
+            setLoading(false);
+        }, 5000);
+
+        if (pAuth?.token) {
+            fetch("/api/proxy/participants/me/profile", {
+                headers: { Authorization: `Bearer ${pAuth.token}` }
+            })
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data) {
+                        setParticipant(data);
+                        // Automatic Timezone Detection
+                        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        if (data.timezone !== browserTz) {
+                            fetch("/api/proxy/participants/me/profile", {
+                                method: "PATCH",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization: `Bearer ${pAuth.token}`
+                                },
+                                body: JSON.stringify({ timezone: browserTz })
+                            }).catch(err => console.error("Timezone sync error:", err));
+                        }
+                    }
+                })
+                .catch(err => console.error("Profile fetch error:", err));
+
+            fetch("/api/proxy/tasks/me?status=PENDING", {
+                headers: { Authorization: `Bearer ${pAuth.token}` }
+            })
+                .then(res => res.ok ? res.json() : [])
+                .then(data => {
+                    if (data && data.length > 0) {
+                        setTaskStates(data);
+                    }
+                })
+                .catch(err => console.error("Tasks fetch error:", err));
+
+            setLoading(false);
+        } else {
+            setLoading(false);
+        }
+
+        return () => clearTimeout(timeout);
+    }, []);
+
+    const isEnrolled = true;
+    const firstName = participantSession?.user?.name?.split(" ")[0] || "Participant";
     const today = new Date().toLocaleDateString("en-US", {
         weekday: "long", month: "long", day: "numeric",
     });
 
-    // ── NEW USER (not enrolled yet) view ─────────────────────────────────────
-    if (!MOCK_ENROLLED) {
+    if (loading) {
+        return (
+            <div className="min-h-[60vh] flex items-center justify-center">
+                <Loader2 className="animate-spin text-cyan-500" size={40} />
+            </div>
+        );
+    }
+
+    if (!isEnrolled) {
         return (
             <div className="space-y-8 animate-fade-in-up">
-                {/* Welcome Banner */}
                 <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800/80 to-slate-900 border border-white/5 p-10">
-                    {/* Glow */}
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-48 bg-cyan-500/20 blur-[80px] rounded-full" />
-                    <div className="absolute bottom-0 right-0 w-64 h-64 bg-blue-600/10 blur-[100px] rounded-full" />
-
-                    <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-                        <div>
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="flex items-center gap-2 px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-full">
-                                    <Sparkles size={12} className="text-cyan-400" />
-                                    <span className="text-cyan-400 text-[10px] font-black uppercase tracking-widest">Welcome</span>
-                                </div>
-                            </div>
-                            <h1 className="text-4xl md:text-5xl font-black text-white italic tracking-tight leading-tight">
-                                Hello, {firstName}! 👋
-                            </h1>
-                            <p className="text-slate-400 mt-3 max-w-lg leading-relaxed">
-                                Your participant account is active and ready. Browse open studies below or check your email for an enrollment invitation from a study coordinator.
-                            </p>
-                            <div className="flex items-center gap-4 mt-6">
-                                <Link
-                                    href="/studies"
-                                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-600/20 transition-all text-sm"
-                                >
-                                    <FlaskConical size={16} /> Browse Studies
-                                </Link>
-                                <Link
-                                    href="/dashboard/participant/profile"
-                                    className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all text-sm border border-white/5"
-                                >
-                                    Complete Profile <ArrowRight size={14} />
-                                </Link>
-                            </div>
-                        </div>
-
-                        {/* Stats card */}
-                        <div className="flex flex-col gap-4 shrink-0 min-w-[220px]">
-                            {[
-                                { label: "Account Status", value: "Active", color: "text-emerald-400", dot: "bg-emerald-400" },
-                                { label: "Enrolled Studies", value: "0", color: "text-slate-300", dot: "bg-slate-600" },
-                                { label: "Tasks Pending", value: "0", color: "text-slate-300", dot: "bg-slate-600" },
-                            ].map((s) => (
-                                <div key={s.label} className="flex items-center justify-between px-5 py-3 bg-slate-900/60 rounded-xl border border-white/5">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${s.dot} animate-pulse`} />
-                                        <span className="text-xs text-slate-500 font-bold">{s.label}</span>
-                                    </div>
-                                    <span className={`text-sm font-black ${s.color}`}>{s.value}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* How It Works */}
-                <div>
-                    <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-4">How It Works</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {[
-                            { step: "01", icon: BookOpen, title: "Browse & Apply", desc: "Explore open clinical studies and apply for ones that match your health profile.", color: "cyan" },
-                            { step: "02", icon: CheckCircle2, title: "Get Screened", desc: "Complete a short eligibility screener. Our team reviews and confirms your enrollment.", color: "indigo" },
-                            { step: "03", icon: Award, title: "Participate & Earn", desc: "Complete tasks, log health data, and receive compensation upon study completion.", color: "emerald" },
-                        ].map((s) => (
-                            <div key={s.step} className="glass border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all group">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className={`w-10 h-10 rounded-xl bg-${s.color}-500/10 flex items-center justify-center`}>
-                                        <s.icon size={20} className={`text-${s.color}-400`} />
-                                    </div>
-                                    <span className={`text-xs font-black text-${s.color}-400 uppercase tracking-widest`}>Step {s.step}</span>
-                                </div>
-                                <h3 className="text-white font-bold mb-2">{s.title}</h3>
-                                <p className="text-slate-500 text-sm leading-relaxed">{s.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Open Studies Teaser */}
-                <div className="glass border border-white/5 rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Open Studies</h2>
-                        <Link href="/studies" className="text-xs text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1">
-                            View All <ChevronRight size={12} />
-                        </Link>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[
-                            { title: "Early Detection Lung Cancer Screening", phase: "Phase II", condition: "Oncology", comp: "$850", spots: 113 },
-                            { title: "NAD+ Longevity & Metabolic Health Trial", phase: "Phase II", condition: "Longevity", comp: "$600", spots: 47 },
-                        ].map((s) => (
-                            <div key={s.title} className="p-5 bg-slate-900/50 rounded-xl border border-white/5 hover:border-cyan-500/20 transition-all group">
-                                <div className="flex items-start justify-between mb-3">
-                                    <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-2 py-0.5 rounded">{s.phase}</span>
-                                    <span className="text-[10px] font-bold text-slate-500">{s.spots} spots left</span>
-                                </div>
-                                <h3 className="text-sm font-bold text-white mb-1 group-hover:text-cyan-400 transition-colors">{s.title}</h3>
-                                <p className="text-xs text-slate-500 mb-4">{s.condition}</p>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-emerald-400 font-black">{s.comp} <span className="text-slate-600 font-normal text-xs">compensation</span></span>
-                                    <Link href="/studies" className="text-xs font-bold text-cyan-400 hover:text-white bg-cyan-500/10 hover:bg-cyan-500 px-3 py-1.5 rounded-lg transition-all">
-                                        Apply Now →
-                                    </Link>
-                                </div>
-                            </div>
-                        ))}
+                    <div className="relative z-10">
+                        <h1 className="text-4xl font-black text-white italic">Hello, {firstName}! 👋</h1>
+                        <p className="text-slate-400 mt-3">Welcome to your participant portal.</p>
+                        <Link href="/studies" className="mt-6 inline-block px-6 py-3 bg-cyan-600 text-white font-bold rounded-xl">Browse Studies</Link>
                     </div>
                 </div>
             </div>
         );
     }
 
-    // ── ENROLLED VIEW (shown when participant has an active study) ────────────
+    const handleTaskClick = async (id: number) => {
+        setCompletingId(id);
+        try {
+            const res = await fetch(`/api/proxy/tasks/${id}/complete`, { method: "PATCH" });
+            if (res.ok) {
+                setTaskStates(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t));
+            } else {
+                setTaskStates(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t));
+            }
+        } catch (err) {
+            setTaskStates(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t));
+        } finally {
+            setCompletingId(null);
+        }
+    };
+
     return (
         <div className="space-y-8 animate-fade-in-up">
-            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1">{today}</p>
-                    <h1 className="text-3xl font-black text-white italic tracking-tight">
-                        Welcome back, {firstName}
-                    </h1>
-                    <p className="text-slate-400 text-sm mt-1">Here's your focus for today.</p>
+                    <p className="text-[13px] text-slate-500 font-bold uppercase tracking-widest mb-1">{today}</p>
+                    <h1 className="text-3xl font-black text-white italic tracking-tight">Welcome back, {firstName}</h1>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                    <span className="text-emerald-400 text-xs font-black uppercase tracking-widest">Study Active</span>
+                <div className="flex items-center gap-4">
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                            className={`relative p-2 transition-colors rounded-xl ${isNotificationsOpen ? "bg-cyan-500/20 text-white" : "text-slate-500 hover:text-white hover:bg-white/5"}`}
+                        >
+                            <Bell size={18} />
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-cyan-500 rounded-full border-2 border-[#020617] animate-pulse" />
+                            )}
+                        </button>
+
+                        {/* Notifications Dropdown (Medical Alerts style) */}
+                        {isNotificationsOpen && (
+                            <div className="absolute right-0 mt-4 w-80 sm:w-96 bg-[#0a1120] border border-white/10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Medical Alerts</h3>
+                                        <p className="text-[13px] text-slate-500 font-bold uppercase mt-1">{unreadCount} Pending Communications</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setUnreadCount(0)}
+                                        className="text-[13px] font-black text-cyan-400 uppercase tracking-widest hover:text-cyan-300 transition-colors"
+                                    >
+                                        Mark all read
+                                    </button>
+                                </div>
+                                <div className="max-h-[400px] overflow-y-auto bg-slate-900/20">
+                                    {notifications.map((n) => (
+                                        <div key={n.id} className={`p-6 border-b border-white/5 hover:bg-white/[0.02] transition-all relative ${!n.read ? "before:absolute before:left-0 before:top-6 before:bottom-6 before:w-1 before:bg-cyan-500 shadow-[inset_10px_0_20px_-10px_rgba(6,182,212,0.1)]" : ""}`}>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[13px] font-black text-white uppercase tracking-tight">{n.title}</span>
+                                                    <span className={`px-2 py-0.5 rounded-[4px] text-[13px] font-black tracking-widest uppercase ${n.bg} ${n.color}`}>
+                                                        {n.role}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[13px] font-bold text-slate-600 uppercase italic whitespace-nowrap">{n.time}</span>
+                                            </div>
+                                            <p className="text-[13px] font-bold text-slate-400 leading-relaxed">
+                                                {n.message}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="p-4 bg-slate-950/50 text-center border-t border-white/5">
+                                    <Link
+                                        href="/dashboard/participant/messages"
+                                        onClick={() => setIsNotificationsOpen(false)}
+                                        className="text-[13px] font-black text-slate-500 uppercase tracking-[0.3em] hover:text-white transition-colors"
+                                    >
+                                        Protocol Inbox
+                                    </Link>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-[13px] font-black uppercase tracking-widest">
+                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                        Study Active
+                    </div>
                 </div>
             </div>
 
-            {/* KPI Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                    { label: "Tasks Today", value: "3", sub: "2 pending", icon: CheckCircle2, color: "cyan" },
-                    { label: "Adherence", value: "94%", sub: "Last 30 days", icon: TrendingUp, color: "emerald" },
-                    { label: "Total Earned", value: "$120", sub: "+$30 this week", icon: Award, color: "amber" },
-                    { label: "Days Active", value: "18", sub: "of 56 total", icon: Target, color: "indigo" },
+                    { label: "Adherence", value: "94%", icon: TrendingUp, color: "emerald" },
+                    { label: "Total Earned", value: "$120", icon: Award, color: "amber" },
+                    { label: "Days Active", value: "18", icon: Target, color: "indigo" },
+                    { label: "Tasks Left", value: taskStates.filter(t => t.status !== 'completed').length, icon: CheckCircle2, color: "cyan" },
                 ].map((kpi) => (
-                    <div key={kpi.label} className="glass border border-white/5 rounded-2xl p-5 flex items-center gap-4 hover:border-white/10 transition-all">
-                        <div className={`w-10 h-10 rounded-xl bg-${kpi.color}-500/10 flex items-center justify-center shrink-0`}>
+                    <div key={kpi.label} className="glass border border-white/5 rounded-2xl p-5 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-800">
                             <kpi.icon size={20} className={`text-${kpi.color}-400`} />
                         </div>
                         <div>
                             <p className="text-2xl font-black text-white">{kpi.value}</p>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{kpi.label}</p>
-                            <p className="text-[10px] text-slate-600 mt-0.5">{kpi.sub}</p>
+                            <p className="text-[13px] text-slate-500 font-bold uppercase tracking-widest">{kpi.label}</p>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Countdown + Schedule */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Countdown */}
-                <div className="md:col-span-2 glass border border-white/5 rounded-2xl p-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 blur-[80px] rounded-full translate-x-1/2 -translate-y-1/2" />
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-2 text-cyan-400 text-[10px] font-black uppercase tracking-widest mb-3">
-                            <Clock size={12} /> Next Milestone
-                        </div>
-                        <h3 className="text-2xl font-black text-white mb-4">Week 2 Check-in</h3>
-                        <div className="flex items-center gap-6">
-                            {[
-                                { val: time.days, label: "Days" },
-                                { val: time.hours, label: "Hours" },
-                                { val: time.minutes, label: "Mins" },
-                            ].map((t, i) => (
-                                <div key={i} className="text-center">
-                                    <div className="w-16 h-16 rounded-2xl bg-slate-900/80 border border-white/5 flex items-center justify-center text-3xl font-black text-white mb-1">
-                                        {String(t.val).padStart(2, "0")}
-                                    </div>
-                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">{t.label}</p>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <div className="xl:col-span-2 space-y-6">
+                    <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                        <Bell size={14} className="text-cyan-400" /> Today's Tasks
+                    </h2>
+                    <div className="relative pl-8 space-y-6 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-800">
+                        {taskStates.map((task) => (
+                            <div key={task.id} className="relative glass p-6 rounded-2xl border border-white/5 bg-slate-900/30 flex justify-between items-center">
+                                <div className={`absolute -left-[37px] top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-4 border-slate-950 ${task.status === "completed" ? "bg-emerald-500" : "bg-slate-700"}`} />
+                                <div>
+                                    <p className="font-bold text-white">{task.title}</p>
+                                    <p className="text-[13px] text-slate-500 font-bold uppercase mt-1">{task.study} • {task.estTime}</p>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Upcoming Schedule */}
-                <div className="glass border border-white/5 rounded-2xl p-6">
-                    <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-widest mb-4">
-                        <CalendarDays size={12} /> Upcoming
-                    </div>
-                    <div className="space-y-3">
-                        {upcomingEvents.map((e) => (
-                            <div key={e.day} className="flex items-center gap-3">
-                                <div className={`text-center w-12 shrink-0`}>
-                                    <p className={`text-xs font-black text-${e.color}-400`}>{e.day.split(" ")[0]}</p>
-                                    <p className="text-[9px] text-slate-600 uppercase">{e.day.split(" ")[1]}</p>
-                                </div>
-                                <div className={`flex-1 px-3 py-2 rounded-lg bg-${e.color}-500/5 border border-${e.color}-500/10`}>
-                                    <p className="text-xs font-bold text-slate-300">{e.label}</p>
-                                </div>
+                                <button
+                                    onClick={() => handleTaskClick(task.id)}
+                                    disabled={completingId === task.id || task.status === "completed"}
+                                    className={`px-4 py-2 rounded-xl text-[13px] font-black uppercase ${task.status === "completed" ? "bg-emerald-500/10 text-emerald-400" : "bg-cyan-600 text-white"}`}
+                                >
+                                    {task.status === "completed" ? "Done" : "Start"}
+                                </button>
                             </div>
                         ))}
                     </div>
                 </div>
-            </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                    { icon: PlusCircle, label: "Log Supplement", desc: "Record your daily dose", color: "cyan", href: "/dashboard/participant/logs" },
-                    { icon: AlertTriangle, label: "Report Symptom", desc: "Log adverse events", color: "amber", href: "/dashboard/participant/logs" },
-                    { icon: HeartPulse, label: "Vitals Check", desc: "Enter today's measurements", color: "rose", href: "/dashboard/participant/logs" },
-                    { icon: Activity, label: "PRO Survey", desc: "Outcome questionnaire", color: "indigo", href: "/dashboard/participant/tasks" },
-                ].map((a) => (
-                    <Link
-                        key={a.label}
-                        href={a.href}
-                        className={`glass p-4 rounded-xl border border-white/5 hover:border-${a.color}-500/30 hover:bg-${a.color}-500/5 transition-all group`}
-                    >
-                        <div className={`w-9 h-9 rounded-xl bg-${a.color}-500/10 flex items-center justify-center mb-3 group-hover:bg-${a.color}-500 transition-colors`}>
-                            <a.icon size={18} className={`text-${a.color}-400 group-hover:text-white transition-colors`} />
-                        </div>
-                        <p className="text-sm font-bold text-white mb-0.5">{a.label}</p>
-                        <p className="text-[11px] text-slate-500">{a.desc}</p>
-                    </Link>
-                ))}
-            </div>
-
-            {/* Today's Tasks */}
-            <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="space-y-6">
                     <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
-                        <Bell size={14} className="text-cyan-400" /> Today's Tasks
+                        <PlusCircle size={14} className="text-emerald-400" /> Supplements
                     </h2>
-                    <Link href="/dashboard/participant/tasks" className="text-xs text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1">
-                        See All <ChevronRight size={12} />
-                    </Link>
-                </div>
-                <div className="space-y-3">
-                    {todayTasks.map((task) => (
-                        <div
-                            key={task.id}
-                            className={`glass p-5 rounded-2xl border flex items-center justify-between transition-all cursor-pointer group ${task.status === "overdue"
-                                    ? "border-red-500/20 bg-red-500/5 hover:border-red-500/40"
-                                    : "border-white/5 bg-slate-900/30 hover:border-cyan-500/20"
-                                }`}
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className={`w-1.5 h-12 rounded-full shrink-0 ${task.status === "overdue" ? "bg-red-500" : "bg-cyan-400"}`} />
+                    <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40 space-y-4">
+                        {supplementSchedule.map((item) => (
+                            <div key={item.id} className="flex justify-between items-center text-[13px]">
                                 <div>
-                                    <p className="text-white font-bold text-sm group-hover:text-cyan-400 transition-colors">{task.title}</p>
-                                    <p className="text-slate-500 text-xs mt-0.5">
-                                        {task.study} · <span className={task.status === "overdue" ? "text-red-400 font-bold" : ""}>Due by {task.time}</span>
-                                    </p>
+                                    <p className="font-bold text-white">{item.name}</p>
+                                    <p className="text-slate-500">{item.time}</p>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${item.taken ? "bg-emerald-500 border-emerald-400" : "border-slate-700"}`}>
+                                    {item.taken && <CheckCircle2 size={12} className="text-white" />}
                                 </div>
                             </div>
-                            <button className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${task.status === "overdue"
-                                    ? "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white"
-                                    : "bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-white"
-                                }`}>
-                                {task.status === "overdue" ? "Complete Now" : "Start Task"}
-                            </button>
+                        ))}
+                    </div>
+
+                    <div className="glass p-6 rounded-3xl border border-cyan-500/20 bg-cyan-500/[0.02] relative overflow-hidden">
+                        <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2 mb-4">
+                            <Activity size={14} className="text-cyan-400" /> Study Insights
+                        </h2>
+                        <div className="flex items-end gap-3 mb-4">
+                            <span className="text-4xl font-black text-white italic">84%</span>
+                            <p className="text-emerald-400 font-bold text-[13px] uppercase pb-1">Compliance</p>
                         </div>
-                    ))}
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-6">
+                            <div className="h-full bg-cyan-500 w-[84%]" />
+                        </div>
+                        <Link href="/dashboard/participant/reports" className="w-full flex items-center justify-center gap-2 py-3 bg-slate-800 text-white font-black uppercase rounded-xl text-[13px] border border-white/5">
+                            Full Report <ChevronRight size={12} />
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

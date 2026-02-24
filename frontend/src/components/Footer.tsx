@@ -1,9 +1,30 @@
 import { MapPin, Phone, Mail, Facebook, Youtube, Linkedin, Instagram, Send, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 
 export default function Footer() {
+    const pathname = usePathname();
     const [newsletterType, setNewsletterType] = useState('individual');
+    const [email, setEmail] = useState('');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+    const handleSubscribe = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email) return;
+
+        setStatus('loading');
+
+        // Simulate an API call
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // In a real app, you would send this to your backend:
+        // await fetch('/api/newsletter', { method: 'POST', body: JSON.stringify({ email, type: newsletterType }) })
+
+        setStatus('success');
+        setEmail('');
+    };
 
     return (
         <footer className="relative overflow-hidden bg-slate-950 pt-20 pb-10">
@@ -22,14 +43,15 @@ export default function Footer() {
 
                     {/* LEFT COLUMN: Logo & Contact */}
                     <div className="lg:col-span-4 space-y-8">
-                        <Link href="/" className="flex items-center gap-3 group mb-6">
-                            <img
+                        <div className="flex items-center gap-3 mb-6 w-max">
+                            <Image
                                 src="/musb research.png"
                                 alt="MUSB Research Logo"
-                                className="h-12 w-auto object-contain"
-                                loading="lazy"
+                                width={240}
+                                height={60}
+                                className="h-16 w-auto object-contain"
                             />
-                        </Link>
+                        </div>
 
                         <div className="space-y-4">
                             <div className="flex items-start gap-3 group">
@@ -60,38 +82,18 @@ export default function Footer() {
 
                     {/* MIDDLE COLUMN: Links & Socials */}
                     <div className="lg:col-span-4 flex flex-col justify-between">
-                        <div className="grid grid-cols-2 gap-8 mb-12">
-                            <div>
-                                <h4 className="text-white font-black text-xs uppercase tracking-widest mb-6">Solutions</h4>
-                                <ul className="space-y-4">
-                                    {['For Businesses', 'For Patients', 'Innovation', 'Join a Study!'].map((item) => (
-                                        <li key={item}>
-                                            <Link href="#" className="text-sm text-slate-400 hover:text-cyan-400 transition-colors font-medium">
-                                                {item}
-                                            </Link>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                            <div>
-                                <h4 className="text-white font-black text-xs uppercase tracking-widest mb-6">MusB Group</h4>
-                                <ul className="space-y-4">
-                                    {['About Us', 'News & Events', 'Careers', 'Contact Us'].map((item) => (
-                                        <li key={item}>
-                                            <Link href="#" className="text-sm text-slate-400 hover:text-cyan-400 transition-colors font-medium">
-                                                {item}
-                                            </Link>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
+                        {/* Removed Solutions and MusB Group sections */}
 
                         <div>
-                            <h4 className="text-white font-black text-xs uppercase tracking-widest mb-6">Join The Community</h4>
+                            <h4 className="text-white font-black text-[13px] uppercase tracking-widest mb-6">Join The Community</h4>
                             <div className="flex gap-3">
-                                {[Youtube, Facebook, Instagram, Linkedin, MessageCircle].map((Icon, i) => (
-                                    <Link key={i} href="#" className="p-2 rounded-lg bg-slate-900/50 border border-white/5 text-slate-400 hover:text-white hover:bg-cyan-600 hover:border-cyan-500 transition-all">
+                                {[
+                                    { Icon: Youtube, href: "https://youtube.com/@MusB-v5n" },
+                                    { Icon: Facebook, href: "https://www.facebook.com/profile.php?id=61579407750169" },
+                                    { Icon: Instagram, href: "https://www.instagram.com/musbresearch/?next=%2F" },
+                                    { Icon: Linkedin, href: "https://www.linkedin.com/company/musb-res/" }
+                                ].map(({ Icon, href }, i) => (
+                                    <Link key={i} href={href} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-slate-900/50 border border-white/5 text-slate-400 hover:text-white hover:bg-cyan-600 hover:border-cyan-500 transition-all">
                                         <Icon size={18} />
                                     </Link>
                                 ))}
@@ -105,40 +107,77 @@ export default function Footer() {
                             <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2" />
 
                             <h3 className="text-white font-black text-sm uppercase tracking-widest mb-4">Get Our Newsletters</h3>
-                            <p className="text-slate-400 text-xs mb-6 font-medium">Which Best Describes You?</p>
 
-                            <div className="bg-slate-950 p-1 rounded-xl flex mb-6 border border-white/5">
-                                {['Business', 'Individual'].map((type) => (
-                                    <button
-                                        key={type}
-                                        onClick={() => setNewsletterType(type.toLowerCase())}
-                                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${newsletterType === type.toLowerCase()
-                                            ? 'bg-cyan-900/50 text-cyan-400 shadow-lg'
-                                            : 'text-slate-500 hover:text-slate-300'
-                                            }`}
-                                    >
-                                        {type}
-                                    </button>
-                                ))}
-                            </div>
+                            {status === 'success' ? (
+                                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-6 text-center animate-fade-in-up mt-6">
+                                    <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <Send size={20} className="text-emerald-400" />
+                                    </div>
+                                    <h4 className="text-emerald-400 font-bold mb-1">Subscribed Successfully!</h4>
+                                    <p className="text-emerald-500/70 text-[13px]">Keep an eye on your inbox for the latest updates.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <p className="text-slate-400 text-[13px] mb-6 font-medium">Which Best Describes You?</p>
 
-                            <div className="relative">
-                                <input
-                                    type="email"
-                                    placeholder="Your Email"
-                                    className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all placeholder:text-slate-600"
-                                />
-                                <button className="absolute right-2 top-2 p-1.5 bg-cyan-500 text-white rounded-lg hover:bg-cyan-400 transition-colors shadow-lg shadow-cyan-500/20">
-                                    <Send size={16} />
-                                </button>
-                            </div>
+                                    <div className="bg-slate-950 p-1 rounded-xl flex mb-6 border border-white/5">
+                                        {['Business', 'Individual'].map((type) => (
+                                            <button
+                                                key={type}
+                                                onClick={() => setNewsletterType(type.toLowerCase())}
+                                                className={`flex-1 py-2 text-[13px] font-bold uppercase tracking-wider rounded-lg transition-all ${newsletterType === type.toLowerCase()
+                                                    ? 'bg-cyan-900/50 text-cyan-400 shadow-lg'
+                                                    : 'text-slate-500 hover:text-slate-300'
+                                                    }`}
+                                            >
+                                                {type}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <form onSubmit={handleSubscribe} className="relative">
+                                        <input
+                                            type="email"
+                                            required
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="Your Email"
+                                            disabled={status === 'loading'}
+                                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all placeholder:text-slate-600 disabled:opacity-50"
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={status === 'loading'}
+                                            className="absolute right-2 top-2 bottom-2 px-3 bg-cyan-500 text-white rounded-lg hover:bg-cyan-400 transition-colors shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center justify-center"
+                                        >
+                                            {status === 'loading' ? (
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            ) : (
+                                                <Send size={16} />
+                                            )}
+                                        </button>
+                                    </form>
+                                </>
+                            )}
                         </div>
                     </div>
 
                 </div>
 
-                <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">
+                <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex flex-wrap justify-center md:justify-start gap-6">
+                        <Link href="/terms" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Terms of Service</Link>
+                        <Link href="/privacy" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Privacy Policy</Link>
+                        <Link href="/cookies" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Cookie Settings</Link>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">HIPAA Compliant</div>
+                        <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">GDPR Ready</div>
+                        <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">21 CFR Part 11</div>
+                    </div>
+
+                    <p className="text-slate-600 text-[13px] font-bold uppercase tracking-widest">
                         &copy; 2026 MusB Research. All rights reserved.
                     </p>
                 </div>

@@ -78,7 +78,7 @@ export default function HelpPage() {
 
                 {/* Hero */}
                 <div className="text-center mb-16">
-                    <span className="px-4 py-2 bg-cyan-500/10 text-cyan-400 text-xs font-black uppercase tracking-widest rounded-full mb-6 inline-block border border-cyan-500/20">
+                    <span className="px-4 py-2 bg-cyan-500/10 text-cyan-400 text-[13px] font-black uppercase tracking-widest rounded-full mb-6 inline-block border border-cyan-500/20">
                         Support Center
                     </span>
                     <h1 className="text-4xl md:text-6xl font-black text-white italic tracking-tight mb-8">
@@ -151,9 +151,6 @@ export default function HelpPage() {
                         <Link href="mailto:support@musbresearch.com" className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-600/20">
                             <Mail size={18} /> Email Support
                         </Link>
-                        <button className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 border border-white/5">
-                            <MessageCircle size={18} /> Live Chat
-                        </button>
                     </div>
                 </div>
 

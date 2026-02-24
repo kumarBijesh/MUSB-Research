@@ -4,7 +4,11 @@ from contextlib import asynccontextmanager
 
 from app.config import get_settings
 from app.database import connect_db, close_db
-from app.routes import auth, studies, participants, adverse_events, messages, tasks, documents, data_logs, sponsor
+from app.routes import (
+    auth, studies, participants, adverse_events, messages, 
+    tasks, documents, data_logs, sponsor, audit, scheduling, inventory, admin,
+    assessments
+)
 
 settings = get_settings()
 
@@ -47,6 +51,12 @@ app.include_router(tasks.router)
 app.include_router(documents.router)
 app.include_router(data_logs.router)
 app.include_router(sponsor.router)
+app.include_router(audit.router)
+app.include_router(scheduling.router)
+app.include_router(inventory.router)
+app.include_router(admin.router)
+app.include_router(assessments.router)
+
 
 
 # ─── Health Check ─────────────────────────────────────────────────────────────

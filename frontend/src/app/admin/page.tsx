@@ -1,5 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
     Users,
     ArrowUpRight,
@@ -9,9 +13,12 @@ import {
     Clock,
     ChevronRight,
     Search,
-    Filter
+    Filter,
+    CheckCircle2,
+    Truck,
+    ShieldAlert,
+    Globe
 } from "lucide-react";
-import Link from "next/link";
 
 const stats = [
     { label: "Total Leads", value: "1,284", change: "+12%", icon: Users, color: "text-cyan-400" },
@@ -26,26 +33,71 @@ const pendingTasks = [
     { id: "T3", title: "Kit Reshipment: Mike R.", category: "Logistics", priority: "Medium", time: "1d ago" },
 ];
 
-const studies = [
-    { name: "NAD+ Longevity Trial", status: "Live", enrollment: "85%", primaryIndication: "Aging" },
-    { name: "GI Microbiome Phase II", status: "Recruiting", enrollment: "42%", primaryIndication: "Gut Health" },
-    { name: "Sleep Quality Supplement", status: "Live", enrollment: "92%", primaryIndication: "Insomnia" },
-];
-
 export default function AdminDashboard() {
+    const { data: session } = useSession();
+    const router = useRouter();
+
+    const [statsData, setStatsData] = useState<any>(null);
+    const [funnelData, setFunnelData] = useState<any[]>([]);
+    const [recentActivity, setRecentActivity] = useState<any[]>([]);
+    const [activeStudies, setActiveStudies] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [sRes, fRes, pRes, stRes] = await Promise.all([
+                    fetch("/api/proxy/admin/stats"),
+                    fetch("/api/proxy/admin/recruitment-funnel"),
+                    fetch("/api/proxy/participants?limit=5"),
+                    fetch("/api/proxy/studies")
+                ]);
+
+                const [sData, fData, pData, stData] = await Promise.all([
+                    sRes.json(),
+                    fRes.json(),
+                    pRes.json(),
+                    stRes.json()
+                ]);
+
+                setStatsData(sData || {});
+                setFunnelData(Array.isArray(fData) ? fData : []);
+                setRecentActivity(Array.isArray(pData) ? pData : []);
+                setActiveStudies(Array.isArray(stData) ? stData : []);
+            } catch (err) {
+                console.error("Dashboard fetch error:", err);
+                // Ensure state remains consistent even on error
+                setFunnelData([]);
+                setRecentActivity([]);
+                setActiveStudies([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (session) fetchData();
+    }, [session]);
+
+    const stats = statsData ? [
+        { label: "Total Leads", value: (statsData.totalLeads || 0).toLocaleString(), change: "", icon: Users, color: "text-cyan-400" },
+        { label: "Screened", value: (statsData.screened || 0).toLocaleString(), change: "", icon: TrendingUp, color: "text-purple-400" },
+        { label: "Enrolled", value: (statsData.enrolled || 0).toLocaleString(), change: "", icon: ArrowUpRight, color: "text-emerald-400" },
+        { label: "Open AEs", value: (statsData.openAEs || 0).toString(), change: "", icon: AlertCircle, color: "text-red-400" },
+    ] : [];
+
     return (
         <div className="space-y-8">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-white italic tracking-tight">Coordinator Console</h1>
-                    <p className="text-slate-500 mt-2 font-medium">Welcome back, Alex. Monitoring recruitment, retention, and site operations.</p>
+                    <p className="text-slate-500 mt-2 font-medium">Welcome back, {session?.user?.name || "Alex"}. Monitoring recruitment, retention, and site operations.</p>
                 </div>
                 <div className="flex gap-3">
-                    <Link href="/admin/studies/new" className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-white/10 hover:border-cyan-500/30 text-slate-300 text-xs font-bold uppercase tracking-widest rounded-xl transition-all">
+                    <Link href="/admin/studies/new" className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-white/10 hover:border-cyan-500/30 text-slate-300 text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all">
                         <Package size={14} /> New Protocol
                     </Link>
-                    <Link href="/admin/participants/new" className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-cyan-600/20">
+                    <Link href="/admin/participants/new" className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-cyan-600/20">
                         <Users size={14} /> Register Participant
                     </Link>
                 </div>
@@ -61,13 +113,13 @@ export default function AdminDashboard() {
                                 <stat.icon size={20} />
                             </div>
                             {stat.change && (
-                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20`}>
+                                <span className={`text-[13px] font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20`}>
                                     {stat.change}
                                 </span>
                             )}
                         </div>
                         <div className="text-2xl font-black text-white">{stat.value}</div>
-                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{stat.label}</div>
+                        <div className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mt-1">{stat.label}</div>
                     </div>
                 ))}
             </div>
@@ -78,25 +130,19 @@ export default function AdminDashboard() {
                     <div className="flex justify-between items-center mb-8">
                         <h2 className="text-lg font-black text-white uppercase tracking-wider italic">Recruitment Funnel</h2>
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Filter:</span>
-                            <select className="bg-slate-900 border border-slate-700 rounded-lg text-[10px] font-bold py-1 px-3 text-slate-400 focus:outline-none focus:border-cyan-500/50">
+                            <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Filter:</span>
+                            <select className="bg-slate-900 border border-slate-700 rounded-lg text-[13px] font-bold py-1 px-3 text-slate-400 focus:outline-none focus:border-cyan-500/50">
                                 <option>Last 30 Days</option>
                                 <option>Last 90 Days</option>
                                 <option>Year to Date</option>
                             </select>
                         </div>
                     </div>
-                    {/* Mock Funnel Chart */}
+                    {/* Funnel Chart */}
                     <div className="space-y-6">
-                        {[
-                            { label: "Website Visits", value: 1284, color: "bg-cyan-500", width: "100%" },
-                            { label: "Screener Starts", value: 856, color: "bg-cyan-600", width: "66%" },
-                            { label: "Pre-Eligible", value: 432, color: "bg-cyan-700", width: "33%" },
-                            { label: "Consented", value: 312, color: "bg-cyan-800", width: "24%" },
-                            { label: "Enrolled", value: 248, color: "bg-emerald-500", width: "19%" },
-                        ].map((step, i) => (
+                        {Array.isArray(funnelData) && funnelData.map((step, i) => (
                             <div key={i} className="space-y-2 group">
-                                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                <div className="flex justify-between text-[13px] font-black uppercase tracking-widest">
                                     <span className="text-slate-400 group-hover:text-white transition-colors">{step.label}</span>
                                     <span className="text-white">{step.value}</span>
                                 </div>
@@ -121,20 +167,115 @@ export default function AdminDashboard() {
                             {pendingTasks.map((task) => (
                                 <div key={task.id} className="p-4 rounded-xl border border-white/5 bg-slate-900/30 hover:bg-slate-800/50 transition-all cursor-pointer group">
                                     <div className="flex justify-between items-start mb-2">
-                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${task.priority === 'Urgent' ? 'bg-red-500/10 text-red-400 border border-red-500/10' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/10'
+                                        <span className={`text-[13px] font-black px-1.5 py-0.5 rounded ${task.priority === 'Urgent' ? 'bg-red-500/10 text-red-400 border border-red-500/10' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/10'
                                             }`}>
                                             {task.priority}
                                         </span>
-                                        <span className="text-[10px] text-slate-500 font-bold">{task.time}</span>
+                                        <span className="text-[13px] text-slate-500 font-bold">{task.time}</span>
                                     </div>
                                     <h4 className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">{task.title}</h4>
-                                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-1">{task.category}</p>
+                                    <p className="text-[13px] text-slate-500 uppercase font-black tracking-widest mt-1">{task.category}</p>
                                 </div>
                             ))}
                         </div>
-                        <button className="w-full mt-6 py-3 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700/50 flex items-center justify-center gap-2 group">
+                        <button className="w-full mt-6 py-3 text-[13px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700/50 flex items-center justify-center gap-2 group">
                             View All Tasks <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Dashboard Specific Modules Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Compliance / Consent */}
+                <Link href="/admin/consent" className="glass p-6 rounded-2xl border border-white/5 hover:border-purple-500/30 transition-all group">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-all">
+                            <CheckCircle2 size={20} className="text-purple-400 group-hover:text-white" />
+                        </div>
+                        <h2 className="text-sm font-black text-white uppercase tracking-widest">e-Consent</h2>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">Templates</span>
+                            <span className="font-bold text-white">12</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">Pending Version</span>
+                            <span className="font-bold text-purple-400">3</span>
+                        </div>
+                        <div className="border-t border-white/5 pt-4 flex items-center justify-between">
+                            <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Master Version</span>
+                            <span className="text-lg font-black text-emerald-400">v2.4</span>
+                        </div>
+                    </div>
+                </Link>
+
+                {/* Logistics */}
+                <Link href="/admin/inventory" className="glass p-6 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all group">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-all">
+                            <Truck size={20} className="text-blue-400 group-hover:text-white" />
+                        </div>
+                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Logistics</h2>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">Pending Shipment</span>
+                            <span className="font-bold text-white">18</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">In Transit</span>
+                            <span className="font-bold text-cyan-400">34</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">Overdue Returns</span>
+                            <span className="font-bold text-red-400">3</span>
+                        </div>
+                    </div>
+                </Link>
+
+                {/* Safety */}
+                <Link href="/admin/safety" className="glass p-6 rounded-2xl border border-white/5 hover:border-red-500/30 transition-all group">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-all">
+                            <ShieldAlert size={20} className="text-red-400 group-hover:text-white" />
+                        </div>
+                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Safety</h2>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">Open AEs</span>
+                            <span className="font-bold text-amber-400 flex items-center gap-2">4 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /></span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">High Severity Alerts</span>
+                            <span className="font-bold text-red-400 flex items-center gap-2">1 <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /></span>
+                        </div>
+                    </div>
+                </Link>
+
+                {/* Geographic */}
+                <div className="glass p-6 rounded-2xl border border-white/5">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                            <Globe size={20} className="text-emerald-400" />
+                        </div>
+                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Geographic</h2>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">US Participants</span>
+                            <span className="font-bold text-white">210</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400">UK Participants</span>
+                            <span className="font-bold text-white">85</span>
+                        </div>
+                        <div className="border-t border-white/5 pt-4">
+                            <span className="text-[13px] text-slate-500 block mb-2">Top Timezone</span>
+                            <span className="text-sm font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded">EST (UTC-5)</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -144,16 +285,16 @@ export default function AdminDashboard() {
                 <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/30">
                     <div>
                         <h2 className="text-sm font-black text-white uppercase tracking-widest">Recent Participant Activity</h2>
-                        <p className="text-xs text-slate-500 mt-1">Live feed of enrollment and adherence data.</p>
+                        <p className="text-[13px] text-slate-500 mt-1">Live feed of enrollment and adherence data.</p>
                     </div>
-                    <Link href="/admin/participants" className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1">
+                    <Link href="/admin/participants" className="text-[13px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1">
                         View All <ArrowUpRight size={12} />
                     </Link>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="bg-slate-900/50 border-b border-white/5">
-                            <tr className="text-[10px] uppercase tracking-widest text-slate-500">
+                            <tr className="text-[13px] uppercase tracking-widest text-slate-500">
                                 <th className="py-4 px-6 font-bold">Participant ID</th>
                                 <th className="py-4 px-6 font-bold">Protocol</th>
                                 <th className="py-4 px-6 font-bold">Status</th>
@@ -163,39 +304,37 @@ export default function AdminDashboard() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5 text-sm text-slate-300">
-                            {[
-                                { id: "P-1024", protocol: "Lung Cancer Screening", status: "Active", date: "Feb 18, 2025", adherence: 96 },
-                                { id: "P-1023", protocol: "Migraine Wearable", status: "Screening", date: "Feb 18, 2025", adherence: 0 },
-                                { id: "P-1022", protocol: "T2D Dietary", status: "Consented", date: "Feb 17, 2025", adherence: 0 },
-                                { id: "P-1021", protocol: "Lung Cancer Screening", status: "Active", date: "Feb 15, 2025", adherence: 88 },
-                                { id: "P-1020", protocol: "Anxiety VR", status: "Withdrawn", date: "Feb 10, 2025", adherence: 45 },
-                            ].map((p, idx) => (
-                                <tr key={idx} className="hover:bg-slate-800/30 transition-colors group cursor-pointer">
-                                    <td className="py-4 px-6 font-mono text-cyan-400 font-bold">{p.id}</td>
-                                    <td className="py-4 px-6 font-bold text-white">{p.protocol}</td>
+                            {Array.isArray(recentActivity) && recentActivity.map((p, idx) => (
+                                <tr
+                                    key={idx}
+                                    onClick={() => router.push(`/admin/participants/${p.id}`)}
+                                    className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
+                                >
+                                    <td className="py-4 px-6 font-mono text-cyan-400 font-bold">{p.id?.slice(-6).toUpperCase() || "N/A"}</td>
+                                    <td className="py-4 px-6 font-bold text-white">{p.name || "Anonymous"}</td>
                                     <td className="py-4 px-6">
-                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${p.status === "Active" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                            p.status === "Withdrawn" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
+                                        <span className={`px-2 py-1 rounded text-[13px] font-bold uppercase tracking-wide ${p.status === "ACTIVE" || p.status === "ENROLLED" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                            p.status === "WITHDRAWN" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
                                                 "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
                                             }`}>
                                             {p.status}
                                         </span>
                                     </td>
-                                    <td className="py-4 px-6 text-slate-500">{p.date}</td>
+                                    <td className="py-4 px-6 text-slate-500">{p.consentedAt ? new Date(p.consentedAt).toLocaleDateString() : 'N/A'}</td>
                                     <td className="py-4 px-6">
-                                        {p.status === "Active" || p.status === "Withdrawn" ? (
+                                        {p.status === "ACTIVE" || p.status === "ENROLLED" ? (
                                             <div className="flex items-center gap-2">
                                                 <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                    <div className={`h-full rounded-full ${p.adherence > 90 ? "bg-emerald-500" : p.adherence > 70 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${p.adherence}%` }} />
+                                                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `92%` }} />
                                                 </div>
-                                                <span className="text-xs font-bold text-white">{p.adherence}%</span>
+                                                <span className="text-[13px] font-bold text-white">92%</span>
                                             </div>
                                         ) : (
-                                            <span className="text-xs text-slate-600 italic">N/A</span>
+                                            <span className="text-[13px] text-slate-600 italic">N/A</span>
                                         )}
                                     </td>
                                     <td className="py-4 px-6 text-right">
-                                        <button className="text-[10px] uppercase font-bold text-slate-500 hover:text-cyan-400 transition-colors bg-slate-900 border border-slate-800 hover:border-cyan-500/30 px-3 py-1.5 rounded-lg">
+                                        <button className="text-[13px] uppercase font-bold text-slate-500 hover:text-cyan-400 transition-colors bg-slate-900 border border-slate-800 hover:border-cyan-500/30 px-3 py-1.5 rounded-lg">
                                             Manage
                                         </button>
                                     </td>
@@ -210,27 +349,27 @@ export default function AdminDashboard() {
             <div className="glass rounded-2xl border border-white/5 overflow-hidden">
                 <div className="p-6 border-b border-white/5 flex justify-between items-center">
                     <h2 className="text-sm font-black text-white uppercase tracking-widest">Active Studies</h2>
-                    <button className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors">See all</button>
+                    <button className="text-[13px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors">See all</button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead className="bg-slate-900/50 border-b border-white/5">
                             <tr>
-                                <th className="text-left py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Study Name</th>
-                                <th className="text-left py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                                <th className="text-left py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Enrollment</th>
-                                <th className="text-left py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Indication</th>
-                                <th className="text-right py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
+                                <th className="text-left py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Study Name</th>
+                                <th className="text-left py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                                <th className="text-left py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Enrollment</th>
+                                <th className="text-left py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Indication</th>
+                                <th className="text-right py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {studies.map((study, i) => (
+                            {Array.isArray(activeStudies) && activeStudies.map((study, i) => (
                                 <tr key={i} className="hover:bg-white/5 transition-colors cursor-pointer group">
                                     <td className="py-4 px-6">
-                                        <p className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{study.name}</p>
+                                        <p className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{study.title}</p>
                                     </td>
                                     <td className="py-4 px-6">
-                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${study.status === 'Live' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                        <span className={`text-[13px] font-black px-1.5 py-0.5 rounded ${study.status === 'ACTIVE' || study.status === 'RECRUITING' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                                             }`}>
                                             {study.status}
                                         </span>
@@ -238,12 +377,12 @@ export default function AdminDashboard() {
                                     <td className="py-4 px-6">
                                         <div className="flex items-center gap-2">
                                             <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                <div className="h-full bg-cyan-500" style={{ width: study.enrollment }} />
+                                                <div className="h-full bg-cyan-500" style={{ width: '45%' }} />
                                             </div>
-                                            <span className="text-[10px] font-bold text-slate-300">{study.enrollment}</span>
+                                            <span className="text-[13px] font-bold text-slate-300">45%</span>
                                         </div>
                                     </td>
-                                    <td className="py-4 px-6 text-sm text-slate-400">{study.primaryIndication}</td>
+                                    <td className="py-4 px-6 text-sm text-slate-400">{study.condition}</td>
                                     <td className="py-4 px-6 text-right">
                                         <button className="p-2 text-slate-500 hover:text-white transition-colors">
                                             <ChevronRight size={18} />

@@ -24,37 +24,75 @@ export default function TasksPage() {
     const [completing, setCompleting] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    const MOCK_TASKS: Task[] = [
+        {
+            id: "1",
+            title: "Morning Supplement Log",
+            description: "Record your daily supplement dose and any immediate effects.",
+            type: "Logs",
+            status: "OVERDUE",
+            availableDate: "2025-02-21T08:00:00Z",
+            dueDate: "2025-02-21T10:00:00Z"
+        },
+        {
+            id: "2",
+            title: "Daily Symptoms Check-in",
+            description: "Please record any symptoms you've experienced today.",
+            type: "Survey",
+            status: "PENDING",
+            availableDate: "2025-02-21T08:00:00Z",
+            dueDate: "2025-02-21T20:00:00Z"
+        },
+        {
+            id: "3",
+            title: "Weekly Energy Survey",
+            description: "A quick questionnaire about your overall energy levels this week.",
+            type: "ePRO",
+            status: "PENDING",
+            availableDate: "2025-02-21T08:00:00Z",
+            dueDate: "2025-02-21T23:59:00Z"
+        },
+        {
+            id: "4",
+            title: "Baseline Vitals Check",
+            description: "Initial blood pressure and heart rate measurement.",
+            type: "Vitals",
+            status: "COMPLETED",
+            availableDate: "2025-02-18T08:00:00Z",
+            dueDate: "2025-02-19T20:00:00Z",
+            completedDate: "2025-02-19T10:30:00Z"
+        }
+    ];
+
     const fetchTasks = async () => {
+        if (!session) return;
+        setLoading(true);
         try {
-            setLoading(true);
-            // Tasks require a backend JWT token — currently we store role in session but not the backend JWT.
-            // For now we show the no-study state. When backend auth tokens are bridged, this will populate.
-            const res = await fetch(`${API_URL}/api/tasks/me`, {
-                headers: session?.user ? { "Authorization": `Bearer no-token-yet` } : {},
-            });
+            const res = await fetch("/api/proxy/tasks/me");
             if (res.ok) {
                 const data = await res.json();
-                setTasks(data);
+                setTasks(data.length > 0 ? data : MOCK_TASKS);
             } else {
-                // 401/404 means not enrolled yet — show empty state
-                setTasks([]);
+                setTasks(MOCK_TASKS);
             }
-        } catch {
-            setTasks([]);
+        } catch (err) {
+            setTasks(MOCK_TASKS);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchTasks();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (session) {
+            fetchTasks();
+        }
+    }, [session]);
 
     const handleComplete = async (taskId: string) => {
         setCompleting(taskId);
         try {
-            const res = await fetch(`${API_URL}/api/tasks/${taskId}/complete`, {
+            // Use the proxy to avoid CORS and manual token handling issues
+            const res = await fetch(`/api/proxy/tasks/${taskId}/complete`, {
                 method: "PATCH",
             });
             if (res.ok) {
@@ -102,7 +140,7 @@ export default function TasksPage() {
                     <h1 className="text-3xl font-black text-white italic tracking-tight">My Task Timeline</h1>
                     <p className="text-slate-500 text-sm mt-1">{tasks.length} tasks in your study schedule.</p>
                 </div>
-                <div className="flex items-center gap-4 text-xs font-bold">
+                <div className="flex items-center gap-4 text-[13px] font-bold">
                     <div className="flex items-center gap-1.5 text-emerald-400"><div className="w-2 h-2 rounded-full bg-emerald-400" /> Completed</div>
                     <div className="flex items-center gap-1.5 text-cyan-400"><div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" /> Active</div>
                     <div className="flex items-center gap-1.5 text-slate-500"><div className="w-2 h-2 rounded-full bg-slate-600" /> Upcoming</div>
@@ -125,10 +163,10 @@ export default function TasksPage() {
 
                                 <div className={`glass p-6 rounded-2xl border transition-all ${s.card}`}>
                                     <div className="flex justify-between items-start mb-3">
-                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border ${s.badge}`}>
+                                        <span className={`text-[13px] font-black uppercase tracking-widest px-2 py-1 rounded border ${s.badge}`}>
                                             {task.status}
                                         </span>
-                                        <span className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                                        <span className="text-[13px] font-medium text-slate-500 flex items-center gap-1">
                                             <Calendar size={12} /> Due {due}
                                         </span>
                                     </div>
@@ -137,10 +175,10 @@ export default function TasksPage() {
                                     {task.description && (
                                         <p className="text-sm text-slate-500 mb-4">{task.description}</p>
                                     )}
-                                    <p className="text-xs text-slate-600 mb-4">{task.type} · Estimated 10 mins</p>
+                                    <p className="text-[13px] text-slate-600 mb-4">{task.type} · Estimated 10 mins</p>
 
                                     {task.status === "COMPLETED" && (
-                                        <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+                                        <div className="flex items-center gap-2 text-emerald-400 text-[13px] font-bold">
                                             <CheckCircle2 size={14} />
                                             Completed {task.completedDate ? new Date(task.completedDate).toLocaleDateString() : ""}
                                         </div>

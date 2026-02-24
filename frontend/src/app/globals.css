@@ -12,6 +12,8 @@
     --color-foreground: #f8fafc;
 
     --font-sans: "Inter", "system-ui", "sans-serif";
+    --font-size-xs: 13px;
+    --font-size-sm: 14px;
 
     --animate-fade-in-up: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     --animate-float: float 4s ease-in-out infinite;
@@ -50,11 +52,18 @@
             transform: translateX(-100%);
         }
     }
+
+    @keyframes shimmer {
+        100% {
+            transform: translateX(100%);
+        }
+    }
 }
 
 @layer base {
     body {
         @apply bg-background text-foreground;
+        font-size: 13px;
     }
 }
 
@@ -66,4 +75,19 @@
     .bg-noise {
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
     }
+}
+
+/* Performance Adjustments based on Cookies */
+.no-animations *,
+.no-animations *::before,
+.no-animations *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+}
+
+.reduce-motion .animate-pulse,
+.reduce-motion .animate-bounce,
+.reduce-motion .animate-float {
+    animation: none !important;
 }

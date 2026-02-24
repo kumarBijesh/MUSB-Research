@@ -9,7 +9,7 @@ export default function PrivacyPage() {
         <div className="min-h-screen bg-[#020617] text-white pt-32 pb-20 px-6">
             <div className="max-w-4xl mx-auto">
                 <div className="text-center mb-16">
-                    <span className="px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-full mb-6 inline-block border border-emerald-500/20">
+                    <span className="px-4 py-2 bg-emerald-500/10 text-emerald-400 text-[13px] font-black uppercase tracking-widest rounded-full mb-6 inline-block border border-emerald-500/20">
                         Trust & Security
                     </span>
                     <h1 className="text-4xl md:text-6xl font-black text-white italic tracking-tight mb-6">

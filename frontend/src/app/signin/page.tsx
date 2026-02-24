@@ -1,20 +1,54 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, Suspense } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { signIn, useSession, signOut } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import ReCAPTCHA from "react-google-recaptcha";
-import { Mail, Lock, ArrowRight, User, AlertCircle, ShieldCheck } from "lucide-react";
+import { Mail, Lock, ArrowRight, User, AlertCircle, ShieldCheck, Clock } from "lucide-react";
+import { ParticipantAuth } from "@/lib/portal-auth";
 
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
 const CAPTCHA_WIDGET_WIDTH = 304; // px — reCAPTCHA v2 fixed width
 
 function SignInContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const callbackUrl = searchParams.get("callbackUrl") || "/dashboard/participant";
     const recaptchaRef = useRef<ReCAPTCHA>(null);
     const captchaWrapperRef = useRef<HTMLDivElement>(null);
     const [captchaScale, setCaptchaScale] = useState(1);
+
+    // Auto-login sync (Handles Google OAuth return & existing NextAuth cookies)
+    const { data: session, status } = useSession();
+
+    useEffect(() => {
+        if (status === "authenticated" && session?.user) {
+            const u = session.user as any;
+            const s = session as any;
+
+            if (u.role === "PARTICIPANT") {
+                // If there's no accessToken in the NextAuth session, it's a stale/corrupted session.
+                // Sign them out of the shared cookie to fix it, instead of infinite looping.
+                if (!s.accessToken) {
+                    signOut({ callbackUrl: "/signin" });
+                    return;
+                }
+
+                if (!ParticipantAuth.get()) {
+                    ParticipantAuth.save(s.accessToken, {
+                        id: u.id || "",
+                        name: u.name || u.email,
+                        email: u.email,
+                        role: "PARTICIPANT",
+                        image: u.image,
+                    });
+                }
+                router.replace(callbackUrl);
+            }
+        }
+    }, [status, session, router, callbackUrl]);
 
     // Dynamically scale reCAPTCHA to fit its container on any screen size
     useEffect(() => {
@@ -26,6 +60,26 @@ function SignInContent() {
         };
         measure();
         window.addEventListener("resize", measure);
+
+        // Simple Device Fingerprinting for duplicate prevention
+        if (!localStorage.getItem("device_fp")) {
+            const fp = [
+                navigator.userAgent,
+                navigator.language,
+                screen.colorDepth,
+                screen.width + "x" + screen.height,
+                new Date().getTimezoneOffset(),
+                !!window.indexedDB,
+                !!window.sessionStorage,
+                !!window.localStorage
+            ].join("|");
+            // Basic hash-like string
+            const fpHash = Array.from(fp).reduce((s, c) => (s << 5) - s + c.charCodeAt(0), 0).toString(16);
+            if (!localStorage.getItem("device_fp")) {
+                localStorage.setItem("device_fp", `fp_${fpHash}`);
+            }
+        }
+
         return () => window.removeEventListener("resize", measure);
     }, []);
 
@@ -34,6 +88,9 @@ function SignInContent() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+    const [showOtp, setShowOtp] = useState(false);
+    const [otp, setOtp] = useState("");
+    const [isVerified, setIsVerified] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -53,46 +110,79 @@ function SignInContent() {
         e.preventDefault();
         setError(null);
 
-        // ── 1. reCAPTCHA check ────────────────────────────────────────────────
-        if (!captchaToken) {
+        // ── 1. reCAPTCHA check (Registration Only) ────────────────────────────
+        if (!isLogin && !captchaToken) {
             setError("Please complete the reCAPTCHA verification.");
             return;
         }
 
         setLoading(true);
 
-        // ── 2. Verify token server-side ───────────────────────────────────────
-        const verifyRes = await fetch("/api/verify-captcha", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: captchaToken }),
-        });
-        const verifyData = await verifyRes.json();
+        // ── 2. Verify token server-side (Registration Only) ───────────────────
+        if (!isLogin) {
+            const verifyRes = await fetch("/api/verify-captcha", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token: captchaToken }),
+            });
+            const verifyData = await verifyRes.json();
 
-        if (!verifyData.success) {
-            setError("reCAPTCHA check failed. Please try again.");
-            resetCaptcha();
-            setLoading(false);
-            return;
+            if (!verifyData.success) {
+                setError("reCAPTCHA check failed. Please try again.");
+                resetCaptcha();
+                setLoading(false);
+                return;
+            }
         }
 
         // ── 3a. Login flow ────────────────────────────────────────────────────
         if (isLogin) {
-            const result = await signIn("credentials", {
-                email,
-                password,
-                allowedRole: "PARTICIPANT",
-                redirect: false,
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+            // Step 1: Authenticate directly with the FastAPI backend
+            const formBody = new URLSearchParams({ username: email, password });
+            const res = await fetch(`${apiUrl}/api/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formBody.toString(),
             });
 
-            if (result?.error) {
-                setError("Invalid email or password.");
-                resetCaptcha();
-            } else {
-                router.push("/dashboard/participant");
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                setError(err.detail || "Invalid email or password.");
+                setLoading(false);
+                return;
             }
 
-            // ── 3b. Register flow ─────────────────────────────────────────────────
+            const tokenData = await res.json();
+            const role: string = tokenData.role?.toUpperCase() || "";
+
+            // Strict portal gating — only PARTICIPANT can use this portal
+            if (role !== "PARTICIPANT") {
+                setError("This portal is for participants only. Please use the Admin Console.");
+                setLoading(false);
+                return;
+            }
+
+            // Step 2: Fetch full user profile
+            const meRes = await fetch(`${apiUrl}/api/auth/me`, {
+                headers: { Authorization: `Bearer ${tokenData.access_token}` },
+            });
+            const user = meRes.ok ? await meRes.json() : { id: "", name: email, email, role };
+
+            // Step 3: Save to THIS TAB's sessionStorage (isolated from other tabs)
+            ParticipantAuth.save(tokenData.access_token, {
+                id: user.id || "",
+                name: user.name || email,
+                email: user.email || email,
+                role: "PARTICIPANT",
+            });
+
+            // Step 4: Also sign in via NextAuth (for middleware compat — must await before navigation)
+            await signIn("credentials", { email, password, allowedRole: "PARTICIPANT", redirect: false });
+
+            router.push("/dashboard/participant");
+            // ── 3b. Register flow (With OTP Verification) ────────────────────────
         } else {
             if (!name.trim()) {
                 setError("Please enter your full name.");
@@ -109,19 +199,49 @@ function SignInContent() {
                 return;
             }
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/register`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, email, password }),
-            });
-            const data = await res.json();
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-            if (!res.ok) {
-                setError(data.detail || "Registration failed. Please try again.");
-                resetCaptcha();
+            if (!showOtp) {
+                // Step 1: Send OTP
+                const sendRes = await fetch(`${apiUrl}/api/auth/verify/send`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ identifier: email, type: "EMAIL" }),
+                });
+                if (!sendRes.ok) {
+                    const d = await sendRes.json();
+                    setError(d.detail || "Failed to send verification code.");
+                } else {
+                    setShowOtp(true);
+                    setError(null);
+                }
             } else {
-                await signIn("credentials", { email, password, allowedRole: "PARTICIPANT", redirect: false });
-                router.push("/dashboard/participant");
+                // Step 2: Verify OTP
+                const checkRes = await fetch(`${apiUrl}/api/auth/verify/check`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ identifier: email, code: otp }),
+                });
+
+                if (!checkRes.ok) {
+                    setError("Invalid or expired verification code.");
+                } else {
+                    // Step 3: Register
+                    const res = await fetch(`${apiUrl}/api/auth/register`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name, email, password, deviceFingerprint: localStorage.getItem("device_fp") }),
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        setError(data.detail || "Registration failed.");
+                        resetCaptcha();
+                    } else {
+                        await signIn("credentials", { email, password, allowedRole: "PARTICIPANT", redirect: false });
+                        router.push(callbackUrl);
+                    }
+                }
             }
         }
 
@@ -141,9 +261,25 @@ function SignInContent() {
                     <div className="relative z-10">
                         {/* Logo & Title */}
                         <div className="text-center mb-10">
-                            <Link href="/" className="inline-flex items-center gap-2 mb-8">
-                                <img src="/musb research.png" alt="MUSB Research" className="h-12 w-auto object-contain" />
-                            </Link>
+                            <div className="flex flex-col items-center gap-4 mb-8">
+                                <Link href="/" className="inline-flex items-center hover:opacity-90 transition-opacity bg-white px-8 py-4 mb-2 shadow-2xl shadow-black">
+                                    <Image
+                                        src="/musb research.png"
+                                        alt="MUSB Research"
+                                        width={320}
+                                        height={80}
+                                        className="h-16 w-auto object-contain"
+                                        priority
+                                    />
+                                </Link>
+                                {/* Operation Hours */}
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/40 border border-slate-800/60 backdrop-blur-md">
+                                    <Clock size={10} className="text-cyan-400" />
+                                    <span className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">
+                                        Monday to Saturday · 08:30 AM - 05:00 PM
+                                    </span>
+                                </div>
+                            </div>
                             <h1 className="text-3xl font-black text-white italic tracking-tight mb-2">
                                 {isLogin ? "Welcome Back." : "Join the Future."}
                             </h1>
@@ -156,7 +292,7 @@ function SignInContent() {
                             {/* Full Name (register only) */}
                             {!isLogin && (
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Full Name</label>
+                                    <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Full Name</label>
                                     <div className="relative group">
                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors">
                                             <User size={18} />
@@ -174,7 +310,7 @@ function SignInContent() {
 
                             {/* Email */}
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Email Address</label>
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Email Address</label>
                                 <div className="relative group">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors">
                                         <Mail size={18} />
@@ -192,7 +328,7 @@ function SignInContent() {
 
                             {/* Password */}
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
                                 <div className="relative group">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors">
                                         <Lock size={18} />
@@ -207,64 +343,88 @@ function SignInContent() {
                                     />
                                 </div>
                                 {!isLogin && (
-                                    <p className="text-[10px] text-slate-500 px-1">Min 12 chars, uppercase, lowercase, number & special char.</p>
+                                    <p className="text-[13px] text-slate-500 px-1">Min 12 chars, uppercase, lowercase, number & special char.</p>
                                 )}
                             </div>
 
-                            {/* ── reCAPTCHA ──────────────────────────────────────── */}
-                            <div className="flex flex-col gap-2">
-                                <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest ml-1">
-                                    <ShieldCheck size={12} className="text-cyan-400" />
-                                    Human Verification
-                                </div>
+                            {/* ── reCAPTCHA (Register Only) ───────────────────────── */}
+                            {!isLogin && (
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-2 text-[13px] text-slate-500 font-bold uppercase tracking-widest ml-1">
+                                        <ShieldCheck size={12} className="text-cyan-400" />
+                                        Human Verification
+                                    </div>
 
-                                {/* Responsive wrapper — scales widget to fit any screen */}
-                                <div
-                                    ref={captchaWrapperRef}
-                                    className={`w-full rounded-xl overflow-hidden border transition-all ${!captchaToken && error === "Please complete the reCAPTCHA verification."
-                                        ? "border-red-500/40 bg-red-500/5"
-                                        : captchaToken
-                                            ? "border-emerald-500/30 bg-emerald-500/5"
-                                            : "border-white/10 bg-slate-950/30"
-                                        }`}
-                                    style={{ height: `${Math.round(78 * captchaScale)}px` }}
-                                >
+                                    {/* Responsive wrapper — scales widget to fit any screen */}
                                     <div
-                                        style={{
-                                            transform: `scale(${captchaScale})`,
-                                            transformOrigin: "left top",
-                                            width: `${CAPTCHA_WIDGET_WIDTH}px`,
-                                        }}
+                                        ref={captchaWrapperRef}
+                                        className={`w-full rounded-xl overflow-hidden border transition-all ${!captchaToken && error === "Please complete the reCAPTCHA verification."
+                                            ? "border-red-500/40 bg-red-500/5"
+                                            : captchaToken
+                                                ? "border-emerald-500/30 bg-emerald-500/5"
+                                                : "border-white/10 bg-slate-950/30"
+                                            }`}
+                                        style={{ height: `${Math.round(78 * captchaScale)}px` }}
                                     >
-                                        <ReCAPTCHA
-                                            ref={recaptchaRef}
-                                            sitekey={RECAPTCHA_SITE_KEY}
-                                            onChange={onCaptchaChange}
-                                            theme="dark"
-                                            size="normal"
-                                        />
+                                        <div
+                                            style={{
+                                                transform: `scale(${captchaScale})`,
+                                                transformOrigin: "left top",
+                                                width: `${CAPTCHA_WIDGET_WIDTH}px`,
+                                            }}
+                                        >
+                                            <ReCAPTCHA
+                                                ref={recaptchaRef}
+                                                sitekey={RECAPTCHA_SITE_KEY}
+                                                onChange={onCaptchaChange}
+                                                theme="dark"
+                                                size="normal"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
 
-                                {captchaToken && (
-                                    <div className="flex items-center gap-1.5 ml-1">
-                                        <ShieldCheck size={12} className="text-emerald-400" />
-                                        <span className="text-[10px] text-emerald-400 font-bold">Verified — you&apos;re human!</span>
-                                    </div>
-                                )}
-                            </div>
+                                    {captchaToken && (
+                                        <div className="flex items-center gap-1.5 ml-1">
+                                            <ShieldCheck size={12} className="text-emerald-400" />
+                                            <span className="text-[13px] text-emerald-400 font-bold">Verified — you&apos;re human!</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Error */}
                             {error && (
-                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-2 text-red-200 text-xs font-medium">
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-2 text-red-200 text-[13px] font-medium">
                                     <AlertCircle size={14} className="mt-0.5 shrink-0" /> {error}
+                                </div>
+                            )}
+
+                            {/* OTP Verification (Register only) */}
+                            {showOtp && !isLogin && (
+                                <div className="space-y-1.5 animate-in slide-in-from-top duration-300">
+                                    <label className="text-[13px] font-bold text-cyan-400 uppercase tracking-wider ml-1">Verification Code</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400 group-focus-within:text-cyan-300 transition-colors">
+                                            <ShieldCheck size={18} />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value)}
+                                            required
+                                            className="w-full bg-slate-950/50 border border-cyan-500/30 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 transition-all font-black tracking-[1em] text-center"
+                                            placeholder="000000"
+                                            maxLength={6}
+                                        />
+                                    </div>
+                                    <p className="text-[13px] text-slate-500 px-1 italic">Please enter the 6-digit code sent to your email.</p>
                                 </div>
                             )}
 
                             {/* Forgot Password */}
                             {isLogin && (
                                 <div className="flex justify-end -mt-1">
-                                    <Link href="#" className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors">
+                                    <Link href="#" className="text-[13px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors">
                                         Forgot Password?
                                     </Link>
                                 </div>
@@ -295,7 +455,7 @@ function SignInContent() {
                             <div className="absolute inset-0 flex items-center">
                                 <div className="w-full border-t border-slate-800" />
                             </div>
-                            <div className="relative flex justify-center text-xs uppercase">
+                            <div className="relative flex justify-center text-[13px] uppercase">
                                 <span className="bg-[#0f172a] px-3 text-slate-500 font-bold">Or continue with</span>
                             </div>
                         </div>
@@ -303,7 +463,7 @@ function SignInContent() {
                         {/* Google Sign In (no reCAPTCHA needed — Google handles it) */}
                         <button
                             type="button"
-                            onClick={() => signIn("google", { callbackUrl: "/dashboard/participant" })}
+                            onClick={() => signIn("google", { callbackUrl })}
                             className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 hover:border-slate-600 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-3 text-sm"
                         >
                             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -332,9 +492,9 @@ function SignInContent() {
                 </div>
 
                 {/* Security note */}
-                <p className="text-center text-[10px] text-slate-600 mt-6 flex items-center justify-center gap-1.5">
+                <p className="text-center text-[13px] text-slate-600 mt-6 flex items-center justify-center gap-1.5">
                     <ShieldCheck size={10} className="text-slate-600" />
-                    Protected by reCAPTCHA · <Link href="https://policies.google.com/privacy" className="hover:text-slate-500 transition-colors">Privacy</Link> · <Link href="https://policies.google.com/terms" className="hover:text-slate-500 transition-colors">Terms</Link>
+                    Protected by reCAPTCHA · <Link href="https://policies.google.com/privacy" className="hover:text-slate-500 transition-colors" target="_blank" rel="noopener noreferrer">Privacy</Link> · <Link href="https://policies.google.com/terms" className="hover:text-slate-500 transition-colors" target="_blank" rel="noopener noreferrer">Terms</Link>
                 </p>
             </div>
         </div>

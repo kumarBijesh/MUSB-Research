@@ -89,3 +89,109 @@ async def sponsor_studies(
             createdAt=study.get("createdAt", datetime.now(timezone.utc)),
         ))
     return result
+
+
+# ─── Sponsor: Launch New Study ────────────────────────────────────────────────
+
+from app.models import StudyCreate, StudyOut
+import re
+
+@router.post("/studies", response_model=StudyOut)
+async def launch_study(
+    study_in: StudyCreate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Sponsor: create or launch a new study."""
+    if current_user.role not in ("SPONSOR", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Only sponsors or admins can launch studies")
+
+    # Generate slug from title if it looks like a placeholder
+    slug = study_in.slug
+    if not slug or slug == "auto":
+        slug = re.sub(r'[^a-zA-Z0-9]', '-', study_in.title.lower()).strip('-')
+        # Check uniqueness
+        existing = await db["studies"].find_one({"slug": slug})
+        if existing:
+            slug = f"{slug}-{int(datetime.now().timestamp())}"
+
+    doc = study_in.model_dump()
+    doc["slug"] = slug
+    doc["sponsorId"] = current_user.user_id
+    doc["createdAt"] = datetime.now(timezone.utc)
+    doc["updatedAt"] = datetime.now(timezone.utc)
+
+    # If it's being "Published", set status to ACTIVE
+    if doc.get("status") == "PUBLISHED":
+        doc["status"] = "ACTIVE"
+
+    result = await db["studies"].insert_one(doc)
+    created = await db["studies"].find_one({"_id": result.inserted_id})
+    
+    # Map _id to id for response
+    created["id"] = str(created.pop("_id"))
+    return created
+
+
+@router.get("/studies/{slug}", response_model=StudyOut)
+async def get_study_details(
+    slug: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Sponsor: get full details of a study for management."""
+    if current_user.role not in ("SPONSOR", "ADMIN", "COORDINATOR"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    study = await db["studies"].find_one({"slug": slug})
+    if not study:
+        # Fallback to ID
+        from bson import ObjectId
+        try:
+            study = await db["studies"].find_one({"_id": ObjectId(slug)})
+        except:
+            study = None
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    study["id"] = str(study.pop("_id"))
+    return study
+
+
+@router.patch("/studies/{slug}", response_model=StudyOut)
+async def update_study(
+    slug: str,
+    study_update: dict,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Sponsor: update study parameters."""
+    if current_user.role not in ("SPONSOR", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    # Find study
+    study = await db["studies"].find_one({"slug": slug})
+    if not study:
+        from bson import ObjectId
+        try:
+            study = await db["studies"].find_one({"_id": ObjectId(slug)})
+        except:
+            study = None
+    
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Ensure it's THEIR study or they are admin
+    if current_user.role != "ADMIN" and study.get("sponsorId") != current_user.user_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own studies")
+
+    # Filter out immutable fields
+    update_data = {k: v for k, v in study_update.items() if k not in ("id", "_id", "createdAt", "sponsorId")}
+    update_data["updatedAt"] = datetime.now(timezone.utc)
+    
+    await db["studies"].update_one({"_id": study["_id"]}, {"$set": update_data})
+    
+    updated = await db["studies"].find_one({"_id": study["_id"]})
+    updated["id"] = str(updated.pop("_id"))
+    return updated

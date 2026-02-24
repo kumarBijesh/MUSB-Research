@@ -6,6 +6,7 @@ from bson import ObjectId
 from app.database import get_db
 from app.models import AdverseEventCreate, AdverseEventOut
 from app.auth import get_current_user, require_admin
+from app.utils.security import encrypt_data, decrypt_data
 
 router = APIRouter(prefix="/api/adverse-events", tags=["Safety / Adverse Events"])
 
@@ -14,10 +15,10 @@ def _map_ae(doc: dict) -> AdverseEventOut:
     return AdverseEventOut(
         id=str(doc["_id"]),
         participantId=doc["participantId"],
-        description=doc["description"],
+        description=decrypt_data(doc["description"]),
         severity=doc["severity"],
         onsetDate=doc["onsetDate"],
-        actionTaken=doc.get("actionTaken"),
+        actionTaken=decrypt_data(doc.get("actionTaken")),
         reportedAt=doc["reportedAt"],
         status=doc.get("status", "Under Review"),
     )
@@ -39,10 +40,10 @@ async def report_ae(
     now = datetime.now(timezone.utc)
     doc = {
         "participantId": str(participant["_id"]),
-        "description": body.description,
+        "description": encrypt_data(body.description),
         "severity": body.severity,
         "onsetDate": body.onsetDate,
-        "actionTaken": body.actionTaken,
+        "actionTaken": encrypt_data(body.actionTaken),
         "reportedAt": now,
         "status": "Under Review",
         # Auto-escalate life-threatening events

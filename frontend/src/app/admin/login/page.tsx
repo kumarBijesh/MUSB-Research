@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { signIn, useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
+import { AdminAuth } from "@/lib/portal-auth";
 
 export default function AdminLoginPage() {
     const router = useRouter();
@@ -13,24 +14,85 @@ export default function AdminLoginPage() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
+    // Auto-login sync
+    const { data: session, status } = useSession();
+
+    useEffect(() => {
+        if (status === "authenticated" && session?.user) {
+            const u = session.user as any;
+            const s = session as any;
+            const ADMIN_ROLES = new Set(["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]);
+            if (ADMIN_ROLES.has(u.role?.toUpperCase())) {
+                if (!s.accessToken) {
+                    signOut({ callbackUrl: "/admin/login" });
+                    return;
+                }
+
+                if (!AdminAuth.get()) {
+                    AdminAuth.save(s.accessToken, {
+                        id: u.id || "",
+                        name: u.name || u.email,
+                        email: u.email,
+                        role: u.role,
+                        image: u.image,
+                    });
+                }
+                router.replace("/admin");
+            }
+        }
+    }, [status, session, router]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         setLoading(true);
 
-        const result = await signIn("credentials", {
-            email,
-            password,
-            // Only ADMIN and COORDINATOR can log in here
-            allowedRole: "ADMIN,COORDINATOR",
-            redirect: false,
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const ADMIN_ROLES = new Set(["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]);
+
+        // Step 1: Authenticate directly with the FastAPI backend
+        const formBody = new URLSearchParams({ username: email, password });
+        const res = await fetch(`${apiUrl}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: formBody.toString(),
         });
 
-        if (result?.error) {
-            setError("Access denied. Invalid credentials or insufficient permissions.");
-        } else {
-            router.push("/admin");
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            setError(err.detail || "Access denied. Invalid credentials.");
+            setLoading(false);
+            return;
         }
+
+        const tokenData = await res.json();
+        const role: string = tokenData.role?.toUpperCase() || "";
+
+        // Strict portal gating — only admin roles can use this portal
+        if (!ADMIN_ROLES.has(role)) {
+            setError("Access denied. This portal is for authorized personnel only.");
+            setLoading(false);
+            return;
+        }
+
+        // Step 2: Fetch full user profile
+        const meRes = await fetch(`${apiUrl}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        const user = meRes.ok ? await meRes.json() : { id: "", name: email, email, role };
+
+        // Step 3: Save to THIS TAB's sessionStorage (isolated from other tabs)
+        AdminAuth.save(tokenData.access_token, {
+            id: user.id || "",
+            name: user.name || email,
+            email: user.email || email,
+            role,
+        });
+
+        // Step 4: Also sign in via NextAuth (for middleware compat — must await before navigation)
+        await signIn("credentials", { email, password, allowedRole: "ADMIN,COORDINATOR,PI,DATA_MANAGER", redirect: false });
+
+        router.push("/admin");
         setLoading(false);
     };
 
@@ -43,7 +105,7 @@ export default function AdminLoginPage() {
             <div className="w-full max-w-md">
                 {/* Security Badge */}
                 <div className="text-center mb-6">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-xs font-black uppercase tracking-widest">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-[13px] font-black uppercase tracking-widest">
                         <ShieldCheck size={14} /> Restricted Access
                     </div>
                 </div>
@@ -66,7 +128,7 @@ export default function AdminLoginPage() {
 
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Email Address</label>
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Email Address</label>
                                 <div className="relative group">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
                                         <Mail size={18} />
@@ -78,7 +140,7 @@ export default function AdminLoginPage() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
                                 <div className="relative group">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
                                         <Lock size={18} />
@@ -90,7 +152,7 @@ export default function AdminLoginPage() {
                             </div>
 
                             {error && (
-                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-2 text-red-200 text-xs font-medium">
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-2 text-red-200 text-[13px] font-medium">
                                     <AlertCircle size={14} className="mt-0.5 shrink-0" /> {error}
                                 </div>
                             )}
@@ -101,14 +163,14 @@ export default function AdminLoginPage() {
                             </button>
                         </form>
 
-                        <p className="text-center text-slate-600 text-xs mt-8">
+                        <p className="text-center text-slate-600 text-[13px] mt-8">
                             <ShieldCheck size={12} className="inline mr-1" />
                             All access attempts are logged and monitored.
                         </p>
                     </div>
                 </div>
 
-                <p className="text-center mt-6 text-xs text-slate-600">
+                <p className="text-center mt-6 text-[13px] text-slate-600">
                     Not an admin?{" "}
                     <Link href="/signin" className="text-cyan-400 hover:text-cyan-300 font-bold">
                         Participant Portal →

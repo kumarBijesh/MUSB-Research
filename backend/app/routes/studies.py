@@ -13,17 +13,32 @@ router = APIRouter(prefix="/api/studies", tags=["Studies"])
 def _map_study(doc: dict) -> StudyOut:
     return StudyOut(
         id=str(doc["_id"]),
-        title=doc["title"],
-        description=doc["description"],
+        title=doc.get("title", "Untitled Study"),
+        slug=doc.get("slug", ""),
+        description=doc.get("description", ""),
         condition=doc.get("condition"),
         location=doc.get("location"),
+        locationType=doc.get("locationType", "Remote"),
         compensation=doc.get("compensation"),
+        duration=doc.get("duration"),
+        timeCommitment=doc.get("timeCommitment"),
+        age=doc.get("age"),
         status=doc.get("status", "DRAFT"),
+        overview=doc.get("overview"),
+        timeline=doc.get("timeline") if isinstance(doc.get("timeline"), list) else [],
+        kits=doc.get("kits"),
+        safety=doc.get("safety"),
+        designType=doc.get("designType", "Parallel"),
+        arms=doc.get("arms") if isinstance(doc.get("arms"), list) else [],
+        eligibilityRules=doc.get("eligibilityRules") if isinstance(doc.get("eligibilityRules"), list) else [],
+        timepoints=doc.get("timepoints") if isinstance(doc.get("timepoints"), list) else [],
+        randomizationEnabled=doc.get("randomizationEnabled", False),
+        country=doc.get("country", "Global"),
         createdAt=doc.get("createdAt", datetime.now(timezone.utc)),
     )
 
 
-@router.get("/", response_model=List[StudyOut])
+@router.get("", response_model=List[StudyOut])
 async def list_studies(
     status: Optional[str] = Query(None, description="Filter by status"),
     condition: Optional[str] = Query(None),
@@ -39,7 +54,12 @@ async def list_studies(
     cursor = db["studies"].find(query).sort("createdAt", -1).limit(50)
     studies = []
     async for doc in cursor:
-        studies.append(_map_study(doc))
+        try:
+            studies.append(_map_study(doc))
+        except Exception as e:
+            # Skip malformed documents — do NOT crash the whole list response
+            print(f"Warning: Skipping study {doc.get('_id')} due to mapping error: {str(e)}")
+            continue
     return studies
 
 

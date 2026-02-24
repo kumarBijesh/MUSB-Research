@@ -13,7 +13,8 @@ import {
     CheckCircle2,
     XCircle,
     Package,
-    AlertCircle
+    AlertCircle,
+    Loader2
 } from "lucide-react";
 import { studies } from "@/lib/data";
 import { notFound } from "next/navigation";
@@ -21,20 +22,43 @@ import { notFound } from "next/navigation";
 export default function StudyDetailPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = use(params);
     const [study, setStudy] = useState<any | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const foundStudy = studies.find(s => s.slug === slug);
-        if (foundStudy) {
-            setStudy(foundStudy);
-        }
+        setLoading(true);
+        fetch(`/api/proxy/studies/${slug}`)
+            .then(res => {
+                if (!res.ok) throw new Error("Study not found");
+                return res.json();
+            })
+            .then(data => {
+                setStudy(data);
+                setLoading(false);
+            })
+            .catch(err => {
+                console.error("Fetch error", err);
+                setLoading(false);
+            });
     }, [slug]);
 
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#020617] pt-32 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="animate-spin text-cyan-500" size={40} />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[13px]">Loading Study Data...</p>
+                </div>
+            </div>
+        );
+    }
+
     if (!study) {
-        // In a real app we might want to show a loading state or redirect to 404
-        // For now, if we can't find it in the client-side list immediately, return null (or loading)
-        // If we are sure it doesn't exist, we can triggering notFound() but that's server side usually.
-        // Let's just show a loading or not found message.
-        return <div className="min-h-screen bg-[#020617] pt-32 text-center text-white">Loading or Study Not Found...</div>;
+        return (
+            <div className="min-h-screen bg-[#020617] pt-32 text-center text-white">
+                <h1 className="text-2xl font-bold mb-4">Study Not Found</h1>
+                <Link href="/studies" className="text-cyan-400 hover:underline">Back to Studies</Link>
+            </div>
+        );
     }
 
     return (
@@ -51,10 +75,10 @@ export default function StudyDetailPage({ params }: { params: Promise<{ slug: st
                         {/* Header */}
                         <div>
                             <div className="flex flex-wrap gap-3 mb-6">
-                                <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-cyan-500/20">
+                                <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 text-[13px] font-black uppercase tracking-widest rounded-lg border border-cyan-500/20">
                                     {study.status}
                                 </span>
-                                <span className="px-3 py-1 bg-slate-800 text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-white/5">
+                                <span className="px-3 py-1 bg-slate-800 text-slate-300 text-[13px] font-black uppercase tracking-widest rounded-lg border border-white/5">
                                     {study.condition}
                                 </span>
                             </div>
@@ -76,19 +100,19 @@ export default function StudyDetailPage({ params }: { params: Promise<{ slug: st
                             </p>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6 border-t border-white/5">
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Duration</p>
+                                    <p className="text-[13px] font-black text-slate-500 uppercase tracking-widest mb-1">Duration</p>
                                     <p className="text-white font-bold">{study.duration}</p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Commitment</p>
+                                    <p className="text-[13px] font-black text-slate-500 uppercase tracking-widest mb-1">Commitment</p>
                                     <p className="text-white font-bold">{study.timeCommitment}</p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Location</p>
+                                    <p className="text-[13px] font-black text-slate-500 uppercase tracking-widest mb-1">Location</p>
                                     <p className="text-white font-bold">{study.location}</p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Age</p>
+                                    <p className="text-[13px] font-black text-slate-500 uppercase tracking-widest mb-1">Age</p>
                                     <p className="text-white font-bold">{study.age}</p>
                                 </div>
                             </div>
@@ -103,7 +127,7 @@ export default function StudyDetailPage({ params }: { params: Promise<{ slug: st
                                 {study.timeline.map((item: any, index: number) => (
                                     <div key={index} className="flex gap-6 relative group">
                                         <div className="flex flex-col items-center">
-                                            <div className="w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 group-hover:border-cyan-500 group-hover:text-cyan-400 transition-colors z-10">
+                                            <div className="w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-[13px] font-bold text-slate-500 group-hover:border-cyan-500 group-hover:text-cyan-400 transition-colors z-10">
                                                 {index + 1}
                                             </div>
                                             {index !== study.timeline.length - 1 && (
@@ -111,7 +135,33 @@ export default function StudyDetailPage({ params }: { params: Promise<{ slug: st
                                             )}
                                         </div>
                                         <div className="pb-8">
-                                            <span className="text-xs font-bold text-cyan-500 uppercase tracking-wider mb-1 block">{item.week}</span>
+                                            <span className="text-[13px] font-bold text-cyan-500 uppercase tracking-wider mb-1 block">{item.week}</span>
+                                            <h4 className="text-lg font-bold text-white mb-2">{item.title}</h4>
+                                            <p className="text-slate-400 text-sm leading-relaxed max-w-xl">{item.desc}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Weekly participation timeline */}
+                        <div>
+                            <h3 className="text-2xl font-black text-white mb-8 flex items-center gap-3">
+                                <Calendar className="text-purple-400" /> Weekly Participation Timeline
+                            </h3>
+                            <div className="space-y-6">
+                                {study.timeline.map((item: any, index: number) => (
+                                    <div key={index} className="flex gap-6 relative group">
+                                        <div className="flex flex-col items-center">
+                                            <div className="w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-[13px] font-bold text-slate-500 group-hover:border-cyan-500 group-hover:text-cyan-400 transition-colors z-10">
+                                                {index + 1}
+                                            </div>
+                                            {index !== study.timeline.length - 1 && (
+                                                <div className="w-0.5 h-full bg-slate-800 -my-2" />
+                                            )}
+                                        </div>
+                                        <div className="pb-8">
+                                            <span className="text-[13px] font-bold text-cyan-500 uppercase tracking-wider mb-1 block">{item.week}</span>
                                             <h4 className="text-lg font-bold text-white mb-2">{item.title}</h4>
                                             <p className="text-slate-400 text-sm leading-relaxed max-w-xl">{item.desc}</p>
                                         </div>
@@ -124,7 +174,7 @@ export default function StudyDetailPage({ params }: { params: Promise<{ slug: st
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="glass p-8 rounded-3xl border border-white/5">
                                 <h3 className="text-lg font-black text-white mb-4 flex items-center gap-2">
-                                    <Package className="text-emerald-400" size={20} /> Equipment & Kits
+                                    <Package className="text-emerald-400" size={20} /> At-home kits or lab visit information
                                 </h3>
                                 <p className="text-slate-400 text-sm leading-relaxed">
                                     {study.kits || "No special equipment required for this study."}
@@ -132,7 +182,7 @@ export default function StudyDetailPage({ params }: { params: Promise<{ slug: st
                             </div>
                             <div className="glass p-8 rounded-3xl border border-white/5">
                                 <h3 className="text-lg font-black text-white mb-4 flex items-center gap-2">
-                                    <ShieldCheck className="text-blue-400" size={20} /> Safety & Privacy
+                                    <ShieldCheck className="text-blue-400" size={20} /> Safety and Privacy Information
                                 </h3>
                                 <p className="text-slate-400 text-sm leading-relaxed">
                                     {study.safety}
@@ -156,10 +206,10 @@ export default function StudyDetailPage({ params }: { params: Promise<{ slug: st
                                 </p>
 
                                 <div className="mb-8 relative z-10">
-                                    <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1">Compensation</p>
+                                    <p className="text-[13px] font-black text-cyan-400 uppercase tracking-widest mb-1">Compensation Details</p>
                                     <div className="flex items-baseline gap-1">
                                         <span className="text-3xl font-black text-white">{study.compensation}</span>
-                                        <span className="text-slate-500 text-xs font-bold uppercase">Total</span>
+                                        <span className="text-slate-500 text-[13px] font-bold uppercase">Total</span>
                                     </div>
                                 </div>
 
@@ -170,7 +220,7 @@ export default function StudyDetailPage({ params }: { params: Promise<{ slug: st
                                     Start Eligibility Check <ArrowRight size={18} />
                                 </Link>
 
-                                <p className="text-center text-[10px] text-slate-600 mt-4 font-bold uppercase tracking-widest relative z-10">
+                                <p className="text-center text-[13px] text-slate-600 mt-4 font-bold uppercase tracking-widest relative z-10">
                                     No commitment required
                                 </p>
                             </div>
@@ -181,12 +231,16 @@ export default function StudyDetailPage({ params }: { params: Promise<{ slug: st
                                     <AlertCircle size={16} className="text-slate-400" /> Key Requirements
                                 </h4>
                                 <ul className="space-y-3">
-                                    {study.eligibility.includes.slice(0, 3).map((req: string, i: number) => (
-                                        <li key={i} className="flex items-start gap-3 text-xs text-slate-400">
-                                            <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                                            <span>{req}</span>
-                                        </li>
-                                    ))}
+                                    {study.eligibilityRules && study.eligibilityRules.length > 0 ? (
+                                        study.eligibilityRules.slice(0, 3).map((rule: any, i: number) => (
+                                            <li key={i} className="flex items-start gap-3 text-[13px] text-slate-400">
+                                                <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                                                <span>{rule.question}</span>
+                                            </li>
+                                        ))
+                                    ) : (
+                                        <li className="text-[13px] text-slate-500 italic">No specific requirements listed.</li>
+                                    )}
                                 </ul>
                             </div>
 

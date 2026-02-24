@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from bson import ObjectId
@@ -10,7 +10,7 @@ from app.auth import get_current_user, require_admin
 router = APIRouter(prefix="/api/tasks", tags=["Tasks"])
 
 
-def _map_task(doc: dict, task_def: dict = None) -> TaskInstanceOut:
+def _map_task(doc: dict, task_def: Optional[dict] = None) -> TaskInstanceOut:
     title = task_def["title"] if task_def else "Unknown Task"
     desc = task_def.get("description") if task_def else None
     type_ = task_def.get("type", "FORM") if task_def else "FORM"
@@ -96,8 +96,8 @@ async def generate_tasks(
     created_count = 0
 
     for task in tasks:
-        available = enrolled_date + __import__("datetime").timedelta(days=task.get("dueDayOffset", 0))
-        due = available + __import__("datetime").timedelta(days=task.get("windowDays", 3))
+        available = enrolled_date + timedelta(days=task.get("dueDayOffset", 0))
+        due = available + timedelta(days=task.get("windowDays", 3))
         instance = {
             "participantId": participant_id,
             "taskId": str(task["_id"]),

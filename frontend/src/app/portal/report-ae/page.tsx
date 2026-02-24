@@ -30,10 +30,10 @@ export default function AEReportPage() {
                 {state === "form" ? (
                     <div className="space-y-8 animate-fade-in-up">
                         <h1 className="text-2xl font-black text-white italic tracking-tight uppercase">Report Adverse Event</h1>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Please describe any new health changes or side effects you are experiencing.</p>
+                        <p className="text-[13px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Please describe any new health changes or side effects you are experiencing.</p>
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <textarea placeholder="Describe symptoms..." className="w-full bg-slate-900 border border-white/5 rounded-xl p-4 text-white focus:outline-none focus:border-cyan-500/30 h-32" required />
-                            <button type="submit" className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black uppercase tracking-widest text-[10px] rounded-xl shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2">
+                            <button type="submit" className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black uppercase tracking-widest text-[13px] rounded-xl shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2">
                                 Submit Formal Report <Send size={14} />
                             </button>
                         </form>

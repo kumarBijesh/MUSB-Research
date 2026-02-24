@@ -37,7 +37,7 @@ export default function NewStudyPage() {
                                     </div>
                                     <div>
                                         <h3 className="text-sm font-bold text-white">{item.title}</h3>
-                                        <p className="text-xs text-slate-500 mt-0.5">{item.desc}</p>
+                                        <p className="text-[13px] text-slate-500 mt-0.5">{item.desc}</p>
                                     </div>
                                 </div>
                             ))}
@@ -47,7 +47,7 @@ export default function NewStudyPage() {
                             Begin Submission Process
                         </button>
 
-                        <p className="text-xs text-slate-600 mt-6 font-medium">
+                        <p className="text-[13px] text-slate-600 mt-6 font-medium">
                             Need help? <Link href="/contact" className="text-amber-400 hover:underline">Contact our CRO team</Link> for full-service support.
                         </p>
                     </div>

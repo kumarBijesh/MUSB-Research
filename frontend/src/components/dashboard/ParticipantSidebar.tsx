@@ -35,7 +35,7 @@ export default function ParticipantSidebar() {
                 </div>
                 <div className="overflow-hidden">
                     <h3 className="text-white font-bold truncate">John Doe</h3>
-                    <p className="text-slate-500 text-xs font-medium truncate">ID: #8291</p>
+                    <p className="text-slate-500 text-[13px] font-medium truncate">ID: #8291</p>
                 </div>
             </div>
 

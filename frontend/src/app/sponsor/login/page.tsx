@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { signIn, useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, ArrowRight, Briefcase, AlertCircle } from "lucide-react";
+import { AdminAuth } from "@/lib/portal-auth"; // Sponsors share the admin sessionStorage key
 
 export default function SponsorLoginPage() {
     const router = useRouter();
@@ -13,24 +14,77 @@ export default function SponsorLoginPage() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
+    // Auto-login sync
+    const { data: session, status } = useSession();
+
+    useEffect(() => {
+        if (status === "authenticated" && session?.user) {
+            const u = session.user as any;
+            const s = session as any;
+            if (u.role === "SPONSOR") {
+                if (!s.accessToken) {
+                    signOut({ callbackUrl: "/sponsor/login" });
+                    return;
+                }
+
+                if (!AdminAuth.get()) {
+                    AdminAuth.save(s.accessToken, {
+                        id: u.id || "",
+                        name: u.name || u.email,
+                        email: u.email,
+                        role: "SPONSOR",
+                        image: u.image,
+                    });
+                }
+                router.replace("/sponsor/dashboard");
+            }
+        }
+    }, [status, session, router]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         setLoading(true);
 
-        const result = await signIn("credentials", {
-            email,
-            password,
-            // Only SPONSOR role can log in here
-            allowedRole: "SPONSOR",
-            redirect: false,
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const formBody = new URLSearchParams({ username: email, password });
+        const res = await fetch(`${apiUrl}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: formBody.toString(),
         });
 
-        if (result?.error) {
+        if (!res.ok) {
             setError("Invalid credentials. Sponsor accounts only.");
-        } else {
-            router.push("/sponsor/dashboard");
+            setLoading(false);
+            return;
         }
+
+        const tokenData = await res.json();
+        const role: string = tokenData.role?.toUpperCase() || "";
+
+        if (role !== "SPONSOR") {
+            setError("Access denied. This portal is for Sponsor accounts only.");
+            setLoading(false);
+            return;
+        }
+
+        const meRes = await fetch(`${apiUrl}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        const user = meRes.ok ? await meRes.json() : { id: "", name: email, email, role };
+
+        AdminAuth.save(tokenData.access_token, {
+            id: user.id || "",
+            name: user.name || email,
+            email: user.email || email,
+            role: "SPONSOR",
+        });
+
+        // Also keep NextAuth session for middleware compat — must await before navigation
+        await signIn("credentials", { email, password, allowedRole: "SPONSOR", redirect: false });
+
+        router.push("/sponsor/dashboard");
         setLoading(false);
     };
 
@@ -42,7 +96,7 @@ export default function SponsorLoginPage() {
             <div className="w-full max-w-md">
                 {/* Badge */}
                 <div className="text-center mb-6">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-400 text-xs font-black uppercase tracking-widest">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-400 text-[13px] font-black uppercase tracking-widest">
                         <Briefcase size={14} /> Sponsor Portal
                     </div>
                 </div>
@@ -65,7 +119,7 @@ export default function SponsorLoginPage() {
 
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Email Address</label>
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Email Address</label>
                                 <div className="relative group">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-amber-400 transition-colors">
                                         <Mail size={18} />
@@ -77,7 +131,7 @@ export default function SponsorLoginPage() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
                                 <div className="relative group">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-amber-400 transition-colors">
                                         <Lock size={18} />
@@ -89,7 +143,7 @@ export default function SponsorLoginPage() {
                             </div>
 
                             {error && (
-                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-2 text-red-200 text-xs font-medium">
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-2 text-red-200 text-[13px] font-medium">
                                     <AlertCircle size={14} className="mt-0.5 shrink-0" /> {error}
                                 </div>
                             )}
@@ -100,7 +154,7 @@ export default function SponsorLoginPage() {
                             </button>
                         </form>
 
-                        <p className="text-center mt-8 text-xs text-slate-500">
+                        <p className="text-center mt-8 text-[13px] text-slate-500">
                             Need access?{" "}
                             <Link href="/contact" className="text-amber-400 hover:text-amber-300 font-bold">
                                 Contact us →
@@ -109,7 +163,7 @@ export default function SponsorLoginPage() {
                     </div>
                 </div>
 
-                <p className="text-center mt-6 text-xs text-slate-600">
+                <p className="text-center mt-6 text-[13px] text-slate-600">
                     Participant?{" "}
                     <Link href="/signin" className="text-cyan-400 hover:text-cyan-300 font-bold">
                         Participant Portal →

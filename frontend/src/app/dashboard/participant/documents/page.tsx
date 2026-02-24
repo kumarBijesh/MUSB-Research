@@ -23,7 +23,7 @@ export default function DocumentsPage() {
                             <div className="p-3 bg-slate-800/50 rounded-xl text-slate-400 group-hover:text-cyan-400 group-hover:bg-cyan-500/10 transition-colors">
                                 <FileText size={20} />
                             </div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-950/50 px-2 py-1 rounded border border-white/5">
+                            <span className="text-[13px] font-bold uppercase tracking-widest text-slate-500 bg-slate-950/50 px-2 py-1 rounded border border-white/5">
                                 {doc.category}
                             </span>
                         </div>
@@ -31,13 +31,19 @@ export default function DocumentsPage() {
                         <h3 className="font-bold text-white mb-1 group-hover:text-cyan-400 transition-colors line-clamp-1">
                             {doc.title}
                         </h3>
-                        <p className="text-xs text-slate-500 mb-6">Uploaded on {doc.date}</p>
+                        <p className="text-[13px] text-slate-500 mb-6">Uploaded on {doc.date}</p>
 
                         <div className="flex gap-2">
-                            <button className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 group/btn">
+                            <button
+                                onClick={() => alert('Opening document viewer...')}
+                                className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white text-[13px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 group/btn"
+                            >
                                 <Eye size={14} className="group-hover/btn:scale-110 transition-transform" /> View
                             </button>
-                            <button className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 group/btn">
+                            <button
+                                onClick={() => alert('Starting secure download...')}
+                                className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white text-[13px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 group/btn"
+                            >
                                 <Download size={14} className="group-hover/btn:scale-110 transition-transform" /> PDF
                             </button>
                         </div>
@@ -49,7 +55,7 @@ export default function DocumentsPage() {
                 <ShieldCheck size={24} className="text-emerald-400" />
                 <div>
                     <h4 className="font-bold text-white">Secure Document Storage</h4>
-                    <p className="text-xs text-slate-500 max-w-xl">
+                    <p className="text-[13px] text-slate-500 max-w-xl">
                         All your documents are encrypted and stored securely according to HIPAA and GDPR standards. Only authorized study personnel and you have access to these files.
                     </p>
                 </div>

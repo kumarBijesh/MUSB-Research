@@ -1,7 +1,6 @@
 "use client";
 
-import { ShieldCheck, Users, Zap, Award, Globe, Heart } from "lucide-react";
-import Link from "next/link";
+import { ShieldCheck, Users, Zap, Heart } from "lucide-react";
 
 export default function About() {
     return (
@@ -17,7 +16,7 @@ export default function About() {
                     <div className="flex-1 space-y-8">
                         <div className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-950/30 border border-cyan-500/20 rounded-full">
                             <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-                            <span className="text-cyan-400 text-xs font-bold uppercase tracking-widest">Our Mission</span>
+                            <span className="text-cyan-400 text-[13px] font-bold uppercase tracking-widest">Our Mission</span>
                         </div>
                         <h1 className="text-5xl md:text-7xl font-black text-white italic tracking-tight leading-[1] max-w-2xl bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
                             Democratizing Access to <br /> Health Research.
@@ -77,19 +76,19 @@ export default function About() {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
                             <div>
                                 <p className="text-4xl md:text-6xl font-black text-white mb-2">12+</p>
-                                <p className="text-slate-500 uppercase font-black tracking-widest text-xs">PhDs on Staff</p>
+                                <p className="text-slate-500 uppercase font-black tracking-widest text-[13px]">PhDs on Staff</p>
                             </div>
                             <div>
                                 <p className="text-4xl md:text-6xl font-black text-cyan-400 mb-2">50+</p>
-                                <p className="text-slate-500 uppercase font-black tracking-widest text-xs">Trials Completed</p>
+                                <p className="text-slate-500 uppercase font-black tracking-widest text-[13px]">Trials Completed</p>
                             </div>
                             <div>
                                 <p className="text-4xl md:text-6xl font-black text-purple-400 mb-2">25k</p>
-                                <p className="text-slate-500 uppercase font-black tracking-widest text-xs">Participants</p>
+                                <p className="text-slate-500 uppercase font-black tracking-widest text-[13px]">Participants</p>
                             </div>
                             <div>
                                 <p className="text-4xl md:text-6xl font-black text-white mb-2">4</p>
-                                <p className="text-slate-500 uppercase font-black tracking-widest text-xs">Continents</p>
+                                <p className="text-slate-500 uppercase font-black tracking-widest text-[13px]">Continents</p>
                             </div>
                         </div>
                     </div>

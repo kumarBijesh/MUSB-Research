@@ -40,7 +40,7 @@ export default function RegisterParticipantPage() {
 
     return (
         <div className="max-w-3xl mx-auto py-8">
-            <Link href="/admin/participants" className="inline-flex items-center gap-2 text-slate-500 hover:text-white mb-8 transition-colors font-bold text-xs uppercase tracking-widest">
+            <Link href="/admin/participants" className="inline-flex items-center gap-2 text-slate-500 hover:text-white mb-8 transition-colors font-bold text-[13px] uppercase tracking-widest">
                 <ArrowLeft size={14} /> Back to Participants
             </Link>
 
@@ -61,24 +61,24 @@ export default function RegisterParticipantPage() {
                     <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 border-b border-white/5 pb-2">Participant Identity</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Full Name</label>
+                            <label className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Full Name</label>
                             <input required type="text" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 focus:bg-slate-900 outline-none transition-all" placeholder="John Doe" />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Date of Birth</label>
+                            <label className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Date of Birth</label>
                             <input required type="date" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 focus:bg-slate-900 outline-none transition-all" />
                         </div>
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 mb-1">
                                 <Mail size={12} className="text-slate-500" />
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Email Address</label>
+                                <label className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Email Address</label>
                             </div>
                             <input required type="email" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 focus:bg-slate-900 outline-none transition-all" placeholder="john@example.com" />
                         </div>
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 mb-1">
                                 <Phone size={12} className="text-slate-500" />
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Phone Number</label>
+                                <label className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Phone Number</label>
                             </div>
                             <input type="tel" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 focus:bg-slate-900 outline-none transition-all" placeholder="+1 (555) 000-0000" />
                         </div>
@@ -92,7 +92,7 @@ export default function RegisterParticipantPage() {
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 mb-1">
                                 <Hash size={12} className="text-slate-500" />
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Target Protocol</label>
+                                <label className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Target Protocol</label>
                             </div>
                             <select className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 focus:bg-slate-900 outline-none transition-all appearance-none cursor-pointer">
                                 <option>Early Detection Lung Cancer Screening (Phase II)</option>
@@ -103,7 +103,7 @@ export default function RegisterParticipantPage() {
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 mb-1">
                                 <ShieldCheck size={12} className="text-slate-500" />
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Initial Status</label>
+                                <label className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Initial Status</label>
                             </div>
                             <select className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 focus:bg-slate-900 outline-none transition-all appearance-none cursor-pointer">
                                 <option value="screening">Screening (Send Screener)</option>
@@ -115,7 +115,7 @@ export default function RegisterParticipantPage() {
                 </div>
 
                 <div className="pt-6 flex justify-end gap-4 border-t border-white/5">
-                    <Link href="/admin/participants" className="px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+                    <Link href="/admin/participants" className="px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-[13px] text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
                         Cancel
                     </Link>
                     <button

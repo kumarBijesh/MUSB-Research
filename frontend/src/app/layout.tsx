@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import InactivityTimer from "@/components/compliance/InactivityTimer";
+import DeviceAdjuster from "@/components/DeviceAdjuster";
+import { cookies } from "next/headers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,7 +25,7 @@ export const metadata: Metadata = {
         siteName: "MusB Research",
         images: [
             {
-                url: "/musb%20research.png", // Using logo as placeholder
+                url: "/musb%20research.png",
                 width: 1200,
                 height: 630,
                 alt: "MusB Research Platform",
@@ -31,38 +34,30 @@ export const metadata: Metadata = {
         locale: "en_US",
         type: "website",
     },
-    twitter: {
-        card: "summary_large_image",
-        title: "MusB™ Research",
-        description: "Accelerating medical discovery through virtual clinical trials.",
-        images: ["/musb%20research.png"],
-    },
-    robots: {
-        index: true,
-        follow: true,
-        googleBot: {
-            index: true,
-            follow: true,
-            "max-video-preview": -1,
-            "max-image-preview": "large",
-            "max-snippet": -1,
-        },
-    },
 };
 
 import SiteLayout from "@/components/SiteLayout";
-
 import { Providers } from "@/components/Providers";
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const cookieStore = await cookies();
+    const perfMode = cookieStore.get("perf-mode")?.value || "high";
+    const deviceType = cookieStore.get("device-type")?.value || "desktop";
+
+    // Adjust body classes based on performance mode
+    const performanceClasses = perfMode === "low" ? "reduce-motion no-animations" : "";
+    const deviceClasses = `device-${deviceType}`;
+
     return (
-        <html lang="en">
-            <body className={`${inter.className} min-h-screen bg-[#020617] text-white selection:bg-cyan-500/30`}>
+        <html lang="en" className={`${performanceClasses} ${deviceClasses}`}>
+            <body className={`${inter.className} min-h-screen bg-[#020617] text-white selection:bg-cyan-500/30 antialiased`}>
+                <DeviceAdjuster />
                 <Providers>
+                    <InactivityTimer />
                     <SiteLayout>
                         {children}
                     </SiteLayout>

@@ -1,4 +1,3 @@
-"use client";
 
 import { ArrowRight, Activity, ShieldCheck, Zap, Globe, Users } from "lucide-react";
 import Link from "next/link";
@@ -59,6 +58,38 @@ export default function Home() {
                             <p className="text-slate-400 leading-relaxed">{item.desc}</p>
                         </div>
                     ))}
+                </div>
+            </section>
+
+            {/* Compliance Section */}
+            <section className="py-24 px-6 border-t border-white/5 relative overflow-hidden">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-cyan-500/[0.02] blur-[120px]" />
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-12 relative z-10">
+                    <div className="max-w-xl">
+                        <h2 className="text-3xl font-black text-white italic tracking-tight mb-6 uppercase">Trusted by Global Institutions</h2>
+                        <p className="text-slate-400 leading-relaxed mb-8">
+                            Our platform is built on the pillars of data integrity and patient safety. We adhere to the world's most stringent regulatory standards to ensure clinical data is secure, anonymous, and actionable.
+                        </p>
+                        <div className="flex flex-wrap gap-4">
+                            {['HIPAA', 'GDPR', 'SOC2', '21 CFR Part 11'].map(tag => (
+                                <span key={tag} className="px-4 py-2 bg-slate-900 border border-white/10 rounded-xl text-[13px] font-black text-slate-300 uppercase tracking-widest leading-none">
+                                    {tag} Compliant
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-4">
+                        {[
+                            { label: 'Patient Privacy', icon: ShieldCheck, color: 'text-emerald-400' },
+                            { label: 'Encrypted Data', icon: Zap, color: 'text-cyan-400' },
+                            { label: 'Audit Ready', icon: Activity, color: 'text-indigo-400' }
+                        ].map((badge, i) => (
+                            <div key={i} className="glass p-6 rounded-2xl border border-white/5 flex flex-col items-center gap-3 w-32">
+                                <badge.icon className={badge.color} size={32} />
+                                <span className="text-[13px] font-black text-slate-500 uppercase tracking-tighter text-center">{badge.label}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </section>
         </div>
