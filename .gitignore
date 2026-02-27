@@ -15,8 +15,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Python packaging lib folders only (NOT frontend/src/lib)
+backend/lib/
+backend/lib64/
 parts/
 sdist/
 var/
