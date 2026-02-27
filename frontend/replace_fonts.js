@@ -4,9 +4,9 @@ const path = require('path');
 const directory = 'src';
 
 const replacements = [
-    { old: /text-\[10px\]/g, new: 'text-[13px]' },
-    { old: /text-\[11px\]/g, new: 'text-[13px]' },
-    { old: /text-\[12px\]/g, new: 'text-[13px]' },
+    { old: /text-\[10px\]/g, new: 'text-[15px]' },
+    { old: /text-\[11px\]/g, new: 'text-[1px]' },
+    { old: /text-\[12px\]/g, new: 'text-[1px]' },
     { old: /text-xs/g, new: 'text-[13px]' }
 ];
 

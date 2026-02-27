@@ -90,6 +90,9 @@ function SignInContent() {
     const [captchaToken, setCaptchaToken] = useState<string | null>(null);
     const [showOtp, setShowOtp] = useState(false);
     const [otp, setOtp] = useState("");
+    const [otpVerifiedLocally, setOtpVerifiedLocally] = useState(false);
+    const [passwordVerifiedLocally, setPasswordVerifiedLocally] = useState(false);
+    const [tempTokenData, setTempTokenData] = useState<any>(null); // To hold the token during login OTP step
     const [isVerified, setIsVerified] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -135,53 +138,90 @@ function SignInContent() {
             }
         }
 
-        // ── 3a. Login flow ────────────────────────────────────────────────────
+        // ── 3a. Login flow (With Initial OTP) ─────────────────────────────────
         if (isLogin) {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-            // Step 1: Authenticate directly with the FastAPI backend
-            const formBody = new URLSearchParams({ username: email, password });
-            const res = await fetch(`${apiUrl}/api/auth/login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: formBody.toString(),
-            });
+            if (!passwordVerifiedLocally) {
+                // Step 1: Authenticate their password FIRST
+                const formBody = new URLSearchParams({ username: email, password });
+                const res = await fetch(`${apiUrl}/api/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: formBody.toString(),
+                });
 
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                setError(err.detail || "Invalid email or password.");
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    setError(err.detail || "Invalid email or password.");
+                    setLoading(false);
+                    return;
+                }
+
+                const tokenData = await res.json();
+                const role: string = tokenData.role?.toUpperCase() || "";
+
+                // Strict portal gating — only PARTICIPANT can use this portal
+                if (role !== "PARTICIPANT") {
+                    setError("This portal is for participants only. Please use the Admin Console.");
+                    setLoading(false);
+                    return;
+                }
+
+                // Password is correct, now send OTP
+                const sendRes = await fetch(`${apiUrl}/api/auth/verify/send`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ identifier: email, type: "EMAIL", purpose: "LOGIN" }),
+                });
+
+                if (!sendRes.ok) {
+                    const d = await sendRes.json();
+                    setError(d.detail || "Failed to send verification code.");
+                    setLoading(false);
+                    return;
+                }
+
+                setTempTokenData(tokenData);
+                setPasswordVerifiedLocally(true);
+                setShowOtp(true);
+                setError(null);
                 setLoading(false);
                 return;
+            } else if (showOtp && passwordVerifiedLocally && !otpVerifiedLocally) {
+                // Step 2: Verify OTP
+                const checkRes = await fetch(`${apiUrl}/api/auth/verify/check`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ identifier: email, code: otp, purpose: "LOGIN" }),
+                });
+
+                if (!checkRes.ok) {
+                    setError("Invalid or expired verification code. Use the latest one sent.");
+                    setLoading(false);
+                    return;
+                }
+
+                // OTP is good! Complete login with the token we got in Step 1
+                const tokenData = tempTokenData;
+                const role: string = tokenData.role?.toUpperCase() || "";
+
+                const meRes = await fetch(`${apiUrl}/api/auth/me`, {
+                    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+                });
+                const user = meRes.ok ? await meRes.json() : { id: "", name: email, email, role: role };
+
+                ParticipantAuth.save(tokenData.access_token, {
+                    id: user.id || "",
+                    name: user.name || email,
+                    email: user.email || email,
+                    role: "PARTICIPANT",
+                });
+
+                await signIn("credentials", { email, password, allowedRole: "PARTICIPANT", redirect: false });
+                router.push(callbackUrl);
             }
 
-            const tokenData = await res.json();
-            const role: string = tokenData.role?.toUpperCase() || "";
-
-            // Strict portal gating — only PARTICIPANT can use this portal
-            if (role !== "PARTICIPANT") {
-                setError("This portal is for participants only. Please use the Admin Console.");
-                setLoading(false);
-                return;
-            }
-
-            // Step 2: Fetch full user profile
-            const meRes = await fetch(`${apiUrl}/api/auth/me`, {
-                headers: { Authorization: `Bearer ${tokenData.access_token}` },
-            });
-            const user = meRes.ok ? await meRes.json() : { id: "", name: email, email, role };
-
-            // Step 3: Save to THIS TAB's sessionStorage (isolated from other tabs)
-            ParticipantAuth.save(tokenData.access_token, {
-                id: user.id || "",
-                name: user.name || email,
-                email: user.email || email,
-                role: "PARTICIPANT",
-            });
-
-            // Step 4: Also sign in via NextAuth (for middleware compat — must await before navigation)
-            await signIn("credentials", { email, password, allowedRole: "PARTICIPANT", redirect: false });
-
-            router.push("/dashboard/participant");
             // ── 3b. Register flow (With OTP Verification) ────────────────────────
         } else {
             if (!name.trim()) {
@@ -191,22 +231,24 @@ function SignInContent() {
                 return;
             }
 
-            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
-            if (!passwordRegex.test(password)) {
-                setError("Password: 12+ chars, uppercase, lowercase, number & special character.");
-                resetCaptcha();
-                setLoading(false);
-                return;
+            if (otpVerifiedLocally) {
+                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
+                if (!passwordRegex.test(password)) {
+                    setError("Password: 12+ chars, uppercase, lowercase, number & special character.");
+                    resetCaptcha();
+                    setLoading(false);
+                    return;
+                }
             }
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-            if (!showOtp) {
-                // Step 1: Send OTP
+            if (!showOtp && !otpVerifiedLocally) {
+                // Step 1: Send OTP (Purpose: REGISTER)
                 const sendRes = await fetch(`${apiUrl}/api/auth/verify/send`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ identifier: email, type: "EMAIL" }),
+                    body: JSON.stringify({ identifier: email, type: "EMAIL", purpose: "REGISTER" }),
                 });
                 if (!sendRes.ok) {
                     const d = await sendRes.json();
@@ -215,36 +257,62 @@ function SignInContent() {
                     setShowOtp(true);
                     setError(null);
                 }
-            } else {
+            } else if (showOtp && !otpVerifiedLocally) {
                 // Step 2: Verify OTP
                 const checkRes = await fetch(`${apiUrl}/api/auth/verify/check`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ identifier: email, code: otp }),
+                    body: JSON.stringify({ identifier: email, code: otp, purpose: "REGISTER" }),
                 });
 
                 if (!checkRes.ok) {
-                    setError("Invalid or expired verification code.");
+                    setError("Invalid or expired verification code. Use the latest one sent.");
                 } else {
-                    // Step 3: Register
-                    const res = await fetch(`${apiUrl}/api/auth/register`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name, email, password, deviceFingerprint: localStorage.getItem("device_fp") }),
-                    });
-                    const data = await res.json();
+                    setOtpVerifiedLocally(true);
+                    setShowOtp(false);
+                    setError(null);
+                }
+            } else if (otpVerifiedLocally) {
+                // Step 3: Register
+                const res = await fetch(`${apiUrl}/api/auth/register`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, email, password, deviceFingerprint: localStorage.getItem("device_fp") }),
+                });
+                const data = await res.json();
 
-                    if (!res.ok) {
-                        setError(data.detail || "Registration failed.");
-                        resetCaptcha();
-                    } else {
-                        await signIn("credentials", { email, password, allowedRole: "PARTICIPANT", redirect: false });
-                        router.push(callbackUrl);
-                    }
+                if (!res.ok) {
+                    setError(data.detail || "Registration failed.");
+                    resetCaptcha();
+                } else {
+                    await signIn("credentials", { email, password, allowedRole: "PARTICIPANT", redirect: false });
+                    router.push(callbackUrl);
                 }
             }
         }
 
+        setLoading(false);
+    };
+
+    const handleResendOtp = async () => {
+        setLoading(true);
+        setError(null);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const purpose = isLogin ? "LOGIN" : "REGISTER";
+
+        const sendRes = await fetch(`${apiUrl}/api/auth/verify/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ identifier: email, type: "EMAIL", purpose }),
+        });
+
+        if (!sendRes.ok) {
+            const d = await sendRes.json();
+            setError(d.detail || "Failed to resend code.");
+        } else {
+            setError("New verification code sent!");
+            setTimeout(() => setError(null), 3000);
+        }
         setLoading(false);
     };
 
@@ -320,35 +388,39 @@ function SignInContent() {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
-                                        className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all font-medium"
+                                        disabled={showOtp || isVerified}
+                                        className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all font-medium disabled:opacity-50"
                                         placeholder="name@example.com"
                                     />
                                 </div>
                             </div>
 
-                            {/* Password */}
-                            <div className="space-y-1.5">
-                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors">
-                                        <Lock size={18} />
+                            {/* Password - Login: Show upfront | Register: Only reveal if verified via OTP */}
+                            {((isLogin && !showOtp) || otpVerifiedLocally) && (
+                                <div className="space-y-1.5 animate-in slide-in-from-top duration-300">
+                                    <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors">
+                                            <Lock size={18} />
+                                        </div>
+                                        <input
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            required
+                                            disabled={showOtp}
+                                            className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all font-medium disabled:opacity-50"
+                                            placeholder="••••••••••••"
+                                        />
                                     </div>
-                                    <input
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required
-                                        className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all font-medium"
-                                        placeholder="••••••••••••"
-                                    />
+                                    {!isLogin && (
+                                        <p className="text-[13px] text-slate-500 px-1">Min 12 chars, uppercase, lowercase, number & special char.</p>
+                                    )}
                                 </div>
-                                {!isLogin && (
-                                    <p className="text-[13px] text-slate-500 px-1">Min 12 chars, uppercase, lowercase, number & special char.</p>
-                                )}
-                            </div>
+                            )}
 
                             {/* ── reCAPTCHA (Register Only) ───────────────────────── */}
-                            {!isLogin && (
+                            {!isLogin && !otpVerifiedLocally && !showOtp && (
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-2 text-[13px] text-slate-500 font-bold uppercase tracking-widest ml-1">
                                         <ShieldCheck size={12} className="text-cyan-400" />
@@ -399,8 +471,8 @@ function SignInContent() {
                                 </div>
                             )}
 
-                            {/* OTP Verification (Register only) */}
-                            {showOtp && !isLogin && (
+                            {/* OTP Verification (Login or Register) */}
+                            {showOtp && (
                                 <div className="space-y-1.5 animate-in slide-in-from-top duration-300">
                                     <label className="text-[13px] font-bold text-cyan-400 uppercase tracking-wider ml-1">Verification Code</label>
                                     <div className="relative group">
@@ -417,7 +489,18 @@ function SignInContent() {
                                             maxLength={6}
                                         />
                                     </div>
-                                    <p className="text-[13px] text-slate-500 px-1 italic">Please enter the 6-digit code sent to your email.</p>
+                                    <p className="text-[13px] text-slate-500 mt-2 px-1">Please enter the 6-digit code sent to your email.</p>
+
+                                    <div className="mt-4 text-center">
+                                        <button
+                                            type="button"
+                                            onClick={handleResendOtp}
+                                            disabled={loading}
+                                            className="text-cyan-400 text-[13px] font-bold hover:text-cyan-300 transition-colors disabled:opacity-50"
+                                        >
+                                            Didn&apos;t receive code? Resend
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -434,17 +517,14 @@ function SignInContent() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
+                                className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all flex items-center justify-center gap-2 group/btn disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                                        Processing...
-                                    </>
+                                    <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                                 ) : (
                                     <>
-                                        {isLogin ? "Sign In" : "Create Account"}
-                                        <ArrowRight size={18} />
+                                        {showOtp ? "Verify & Continue" : otpVerifiedLocally ? (isLogin ? "Sign In Securely" : "Complete Registration") : "Continue"}
+                                        <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
                                     </>
                                 )}
                             </button>
@@ -479,7 +559,15 @@ function SignInContent() {
                         <div className="mt-8 text-center">
                             <button
                                 type="button"
-                                onClick={() => { setIsLogin(!isLogin); setError(null); resetCaptcha(); }}
+                                onClick={() => {
+                                    setIsLogin(!isLogin);
+                                    setError(null);
+                                    setShowOtp(false);
+                                    setTempTokenData(null);
+                                    setOtpVerifiedLocally(false);
+                                    setPasswordVerifiedLocally(false);
+                                    resetCaptcha();
+                                }}
                                 className="text-slate-400 text-sm font-medium hover:text-white transition-colors"
                             >
                                 {isLogin ? "Don't have an account? " : "Already have an account? "}
@@ -491,11 +579,6 @@ function SignInContent() {
                     </div>
                 </div>
 
-                {/* Security note */}
-                <p className="text-center text-[13px] text-slate-600 mt-6 flex items-center justify-center gap-1.5">
-                    <ShieldCheck size={10} className="text-slate-600" />
-                    Protected by reCAPTCHA · <Link href="https://policies.google.com/privacy" className="hover:text-slate-500 transition-colors" target="_blank" rel="noopener noreferrer">Privacy</Link> · <Link href="https://policies.google.com/terms" className="hover:text-slate-500 transition-colors" target="_blank" rel="noopener noreferrer">Terms</Link>
-                </p>
             </div>
         </div>
     );

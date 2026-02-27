@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models import MessageCreate, MessageOut, ContactMessageCreate, ContactMessageOut
 from app.auth import get_current_user
 from app.utils.security import encrypt_data, decrypt_data
+from app.utils.email import notify_coordinator_new_message
 
 router = APIRouter(prefix="/api/messages", tags=["Messages"])
 
@@ -37,7 +38,7 @@ async def get_my_messages(current_user=Depends(get_current_user), db=Depends(get
     return result
 
 
-from app.utils.email import notify_coordinator_new_message
+
 
 @router.post("/", response_model=MessageOut)
 async def send_message(
@@ -81,9 +82,10 @@ async def send_message(
         # Decrypt sender name if available
         sender_name = decrypt_data(current_user.name) if getattr(current_user, "name", None) else current_user.email
         
+        coordinator_name = decrypt_data(receiver.get("name")) if receiver.get("name") else "Coordinator"
         await notify_coordinator_new_message(
             coordinator_email=receiver["email"],
-            coordinator_name=receiver.get("name", "Coordinator"),
+            coordinator_name=coordinator_name,
             participant_name=sender_name,
             message_excerpt=body.content[:50]
         )

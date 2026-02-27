@@ -53,7 +53,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
 
 
 async def require_admin(current_user: TokenData = Depends(get_current_user)) -> TokenData:
-    if current_user.role != "ADMIN":
+    if current_user.role not in ("ADMIN", "SUPER_ADMIN"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin permissions required"
@@ -61,8 +61,17 @@ async def require_admin(current_user: TokenData = Depends(get_current_user)) -> 
     return current_user
 
 
+async def require_super_admin(current_user: TokenData = Depends(get_current_user)) -> TokenData:
+    if current_user.role != "SUPER_ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super Admin permissions required"
+        )
+    return current_user
+
+
 async def require_coordinator_or_admin(current_user: TokenData = Depends(get_current_user)) -> TokenData:
-    if current_user.role not in ("ADMIN", "COORDINATOR", "PI"):
+    if current_user.role not in ("ADMIN", "COORDINATOR", "PI", "DATA_MANAGER", "SUPER_ADMIN"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions"

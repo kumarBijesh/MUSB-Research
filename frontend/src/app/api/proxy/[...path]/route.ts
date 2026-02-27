@@ -36,7 +36,13 @@ async function handleProxy(req: NextRequest, paramsPromise: Promise<{ path: stri
     });
 
     const headers = new Headers();
-    if (session?.accessToken) {
+
+    // Priority: client's Authorization header (used by Admin/Participant portals)
+    // then fall back to NextAuth session token
+    const clientAuthHeader = req.headers.get("authorization");
+    if (clientAuthHeader) {
+        headers.set("Authorization", clientAuthHeader);
+    } else if (session?.accessToken) {
         headers.set("Authorization", `Bearer ${session.accessToken}`);
     }
 

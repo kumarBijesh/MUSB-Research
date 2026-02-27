@@ -9,6 +9,7 @@ from app.models import ParticipantOut, ScreenerSubmit, ScreenerOut, ConsentSign,
 from app.auth import get_current_user, require_admin, require_coordinator_or_admin
 from app.utils.security import encrypt_data, decrypt_data
 from app.utils.randomization import randomize_participant
+from app.routes.audit import log_audit_event
 
 router = APIRouter(prefix="/api/participants", tags=["Participants"])
 
@@ -266,6 +267,10 @@ async def _enroll_logic(p: dict, db):
         raise HTTPException(status_code=400, detail="Participant must have signed consent and passed screening.")
 
     study_id = p.get("studyId")
+    if not study_id:
+        raise HTTPException(status_code=400, detail="Participant is not assigned to a study")
+    if not ObjectId.is_valid(study_id):
+        raise HTTPException(status_code=400, detail="Participant has an invalid study reference")
     study = await db["studies"].find_one({"_id": ObjectId(study_id)})
     if not study:
         raise HTTPException(status_code=404, detail="Assigned study not found")
@@ -317,8 +322,7 @@ async def withdraw_me(
         }}
     )
 
-    # HIPAA Audit: Log withdrawal
-    from app.routes.audit import log_audit_event
+    
     await log_audit_event(
         db=db,
         user_id=current_user.user_id,

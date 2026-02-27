@@ -95,6 +95,10 @@ async def sponsor_studies(
 
 from app.models import StudyCreate, StudyOut
 import re
+from bson import ObjectId
+from app.utils.email import notify_admin_new_study_inquiry
+from app.utils.security import decrypt_data
+from app.config import get_settings
 
 @router.post("/studies", response_model=StudyOut)
 async def launch_study(
@@ -121,13 +125,49 @@ async def launch_study(
     doc["createdAt"] = datetime.now(timezone.utc)
     doc["updatedAt"] = datetime.now(timezone.utc)
 
-    # If it's being "Published", set status to ACTIVE
+    # If it's being "Published" (Inquired), set status to UNDER_REVIEW
+    # We don't launch immediately anymore; admin must approve.
+    is_inquiry = False
     if doc.get("status") == "PUBLISHED":
-        doc["status"] = "ACTIVE"
+        doc["status"] = "UNDER_REVIEW"
+        is_inquiry = True
 
     result = await db["studies"].insert_one(doc)
     created = await db["studies"].find_one({"_id": result.inserted_id})
     
+    # Send Notification to Admin if it's a new inquiry
+    if is_inquiry:
+        settings = get_settings()
+        admin_email = settings.SMTP_EMAIL # Default to system email for admin
+        
+        # Fetch sponsor name from DB
+        sponsor_name = "A Sponsor"
+        user_doc = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+        if user_doc:
+            try:
+                sponsor_name = decrypt_data(user_doc.get("name")) or "A Sponsor"
+            except Exception:
+                sponsor_name = "A Sponsor"
+
+        # Save in-app notification for all admins to see on the bell icon
+        study_title = study_in.title
+        await db["notifications"].insert_one({
+            "userId": "ADMIN",  # special target: all admin users see this
+            "title": f"New Study Inquiry: {study_title}",
+            "content": f"Sponsor {sponsor_name} ({current_user.email}) has submitted a study inquiry and is awaiting approval.",
+            "type": "STUDY_INQUIRY",
+            "status": "UNREAD",
+            "studyId": str(result.inserted_id),
+            "createdAt": doc["createdAt"],
+        })
+
+        await notify_admin_new_study_inquiry(
+            admin_email=admin_email,
+            sponsor_name=sponsor_name,
+            sponsor_email=current_user.email,
+            study_details=study_in.model_dump()
+        )
+
     # Map _id to id for response
     created["id"] = str(created.pop("_id"))
     return created
@@ -195,3 +235,153 @@ async def update_study(
     updated = await db["studies"].find_one({"_id": study["_id"]})
     updated["id"] = str(updated.pop("_id"))
     return updated
+
+
+# ─── Sponsor: Study Inquiry Lead ──────────────────────────────────────────────
+
+from fastapi import File, UploadFile, Form
+import json as _json
+
+ROUTE_MAP = {
+    "Biorepository": "biorepository@musbresearch.com",
+    "Biomarker / Lab Support": "lab@musbresearch.com",
+    "Not Sure – Need Guidance": "sales@musbresearch.com",
+}
+DEFAULT_ROUTE = "sales@musbresearch.com"
+LEGAL_EMAIL   = "info@musbresearch.com"
+
+
+@router.post("/lead")
+async def submit_lead(
+    data: str = Form(...),
+    file: UploadFile = File(None),
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """
+    Handle sponsor study inquiry leads (Step 1 = preliminary, Step 2 = qualified).
+    Supports multipart (with optional file attachment).
+    """
+    try:
+        payload = _json.loads(data)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload in 'data' field.")
+
+    step        = payload.get("step", 1)
+    nda_req     = payload.get("ndaRequested", False)
+    status      = payload.get("status", "PRELIMINARY_LEAD")
+    step1_data  = payload.get("step1", {})
+    step2_data  = payload.get("step2", {})
+    nda_info    = payload.get("ndaInfo", {})
+    now         = datetime.now(timezone.utc)
+
+    # ── Determine routing email ───────────────────────────────────────────────
+    route_email = DEFAULT_ROUTE
+    if nda_req:
+        route_email = LEGAL_EMAIL
+    else:
+        needs: list = step1_data.get("need", []) + step2_data.get("services", [])
+        for need in needs:
+            if need in ROUTE_MAP:
+                route_email = ROUTE_MAP[need]
+                break
+
+    # ── Upsert the lead record ────────────────────────────────────────────────
+    existing = await db["leads"].find_one({"sponsorUserId": current_user.user_id})
+    lead_doc = {
+        "sponsorUserId": current_user.user_id,
+        "sponsorEmail": current_user.email,
+        "step": step,
+        "status": status,
+        "ndaRequested": nda_req,
+        "ndaInfo": nda_info,
+        "step1": step1_data,
+        "step2": step2_data,
+        "routedTo": route_email,
+        "updatedAt": now,
+    }
+
+    if existing:
+        await db["leads"].update_one({"_id": existing["_id"]}, {"$set": lead_doc})
+        lead_id = str(existing["_id"])
+    else:
+        lead_doc["createdAt"] = now
+        res = await db["leads"].insert_one(lead_doc)
+        lead_id = str(res.inserted_id)
+
+    # ── Store file reference if uploaded ──────────────────────────────────────
+    if file and file.filename:
+        file_bytes = await file.read()
+        await db["leadAttachments"].insert_one({
+            "leadId": lead_id,
+            "filename": file.filename,
+            "contentType": file.content_type,
+            "size": len(file_bytes),
+            "uploadedAt": now,
+        })
+
+    # ── Admin in-app notification ─────────────────────────────────────────────
+    product_name = step1_data.get("productName", "Unknown Product")
+    notif_title = (
+        f"NDA Requested: {product_name}" if nda_req and step == 1
+        else f"Qualified Lead: {product_name}" if step == 2
+        else f"New Preliminary Lead: {product_name}"
+    )
+    await db["notifications"].insert_one({
+        "userId": "ADMIN",
+        "title": notif_title,
+        "content": (
+            f"Sponsor {current_user.email} submitted a study inquiry "
+            f"(Status: {status}). Routed to {route_email}."
+        ),
+        "type": "LEAD_SUBMISSION",
+        "status": "UNREAD",
+        "leadId": lead_id,
+        "createdAt": now,
+    })
+
+    # ── Send email notification ───────────────────────────────────────────────
+    settings = get_settings()
+    email_subject = (
+        f"MUSB Research: NDA Requested — {product_name}" if nda_req and step == 1
+        else f"MUSB Research: New Qualified Study Lead — {product_name}"
+    )
+    nda_block = ""
+    if nda_req and nda_info:
+        nda_block = f"""
+NDA REQUEST DETAILS:
+  Company: {nda_info.get('companyName')}
+  Signatory: {nda_info.get('signatoryName')}, {nda_info.get('title')}
+  Address: {nda_info.get('address')}
+"""
+    email_body = f"""
+New sponsor inquiry received.
+
+SPONSOR: {current_user.email}
+STATUS: {status}
+ROUTED TO: {route_email}
+
+PRODUCT: {step1_data.get('productName')} ({step1_data.get('productCategory')})
+STAGE: {step1_data.get('stage')}
+HEALTH FOCUS: {step1_data.get('healthFocus')}
+TIMELINE: {step1_data.get('timeline')}
+NEEDS: {', '.join(step1_data.get('need', []))}
+{nda_block}
+BUDGET: {step2_data.get('budget', 'N/A')}
+SERVICES: {', '.join(step2_data.get('services', []))}
+
+DESCRIPTION:
+{step2_data.get('description', 'Not provided (Step 1 only)')}
+
+Lead ID: {lead_id}
+"""
+    from app.utils.email import send_email_notification
+    await send_email_notification(route_email, email_subject, email_body)
+
+    return {
+        "message": "Lead submitted successfully",
+        "leadId": lead_id,
+        "status": status,
+        "routedTo": route_email,
+    }
+

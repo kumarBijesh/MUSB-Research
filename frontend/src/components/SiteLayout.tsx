@@ -8,12 +8,13 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
     const pathname = usePathname();
     const isPortal = pathname?.startsWith("/portal");
     const isAdmin = pathname?.startsWith("/admin");
+    const isSuperAdmin = pathname?.startsWith("/super-admin");
     const isSponsor = pathname?.startsWith("/sponsor");
     const isDashboard = pathname?.startsWith("/dashboard");
     const isAuth = pathname === "/signin" || pathname === "/signup";
 
-    // Portal, Admin, Sponsor, and Participant dashboard have their own layouts
-    if (isPortal || isAdmin || isSponsor || isDashboard) {
+    // Portal, Admin, Super Admin, Sponsor, and Participant dashboard have their own layouts
+    if (isPortal || isAdmin || isSuperAdmin || isSponsor || isDashboard) {
         return <>{children}</>;
     }
 

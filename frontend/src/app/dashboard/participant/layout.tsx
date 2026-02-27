@@ -97,18 +97,18 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
                     </Link>
                 </div>
 
-                <div className="p-4 mx-3 mt-4 bg-slate-800/50 rounded-2xl border border-white/5">
+                <div className="p-4 mx-3 mt-4 bg-slate-800/40 rounded-2xl border border-white/5 overflow-hidden">
                     <div className="flex items-center gap-3">
                         {user?.image ? (
-                            <img src={user.image} alt={user.name || ""} className="w-10 h-10 rounded-full border-2 border-cyan-500/30 object-cover" />
+                            <img src={user.image} alt="" className="w-10 h-10 rounded-full border border-cyan-500/30 object-cover shrink-0" />
                         ) : (
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-sm shadow-lg">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-xs shadow-lg shrink-0">
                                 {initials}
                             </div>
                         )}
-                        <div className="overflow-hidden">
-                            <p className="text-sm font-bold text-white truncate">{user?.name || "Participant"}</p>
-                            <p className="text-[13px] text-cyan-400 font-bold uppercase tracking-widest">Participant</p>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-bold text-white truncate leading-none uppercase tracking-tight">{user?.name || "Participant"}</p>
+                            <p className="text-[10px] text-cyan-400 font-black uppercase tracking-[0.2em] mt-1.5 opacity-70">PARTICIPANT</p>
                         </div>
                     </div>
                 </div>
@@ -196,18 +196,18 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
                         </div>
 
                         <div className="h-5 w-px bg-slate-800" />
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 ml-2 border-l border-slate-800 pl-4">
+                            <div className="text-right hidden sm:block">
+                                <p className="text-[13px] font-bold text-white leading-tight truncate max-w-[150px]">{user?.name || "Participant"}</p>
+                                <p className="text-[11px] text-slate-500 font-medium truncate max-w-[150px]">{user?.email}</p>
+                            </div>
                             {user?.image ? (
-                                <img src={user.image} alt="" className="w-8 h-8 rounded-full object-cover border border-cyan-500/30" />
+                                <img src={user.image} alt="" className="w-9 h-9 rounded-xl object-cover border border-cyan-500/30" />
                             ) : (
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-[13px]">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-[12px] shadow-lg shadow-cyan-500/10">
                                     {initials}
                                 </div>
                             )}
-                            <div className="hidden md:block">
-                                <p className="text-[13px] font-bold text-white leading-none">{user?.name || "Participant"}</p>
-                                <p className="text-[13px] text-slate-500 mt-1">{user?.email}</p>
-                            </div>
                         </div>
                     </div>
                 </header>

@@ -4,7 +4,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # App
-    APP_NAME: str = "MusB Research API"
+    APP_NAME: str = "MusB Backend"
     APP_VERSION: str = "1.1.0"
     DEBUG: bool = False
 
@@ -28,13 +28,14 @@ class Settings(BaseSettings):
     # Email (optional, for notifications)
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASS: str = ""
+    SMTP_EMAIL: str = ""
+    SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = "noreply@musbresearch.com"
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 @lru_cache()

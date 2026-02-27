@@ -36,6 +36,7 @@ class UserRole:
     DATA_MANAGER = "DATA_MANAGER"
     SPONSOR = "SPONSOR"
     ADMIN = "ADMIN"
+    SUPER_ADMIN = "SUPER_ADMIN"
 
 
 class UserBase(BaseModel):
@@ -423,10 +424,12 @@ class KitInstanceOut(KitInstanceCreate):
 class VerificationRequest(BaseModel):
     identifier: str # Email or Phone
     type: str # "EMAIL" or "PHONE"
+    purpose: Optional[str] = "LOGIN"  # LOGIN, REGISTER, RESET
 
 class VerificationCheck(BaseModel):
     identifier: str
     code: str
+    purpose: Optional[str] = "LOGIN"
 
 
 class PasswordResetRequest(BaseModel):

@@ -23,7 +23,7 @@ async def log_audit_event(
     """
     Core function to record sensitive actions for HIPAA compliance.
     """
-    ip_address = request.client.host if request else "unknown"
+    ip_address = (request.client.host if request and request.client else "unknown")
     user_agent = request.headers.get("user-agent") if request else "unknown"
 
     log_entry = {

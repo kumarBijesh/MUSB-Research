@@ -87,6 +87,22 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                 setEligibilityStatus("eligible");
             }
 
+            // Immediately dispatch the email using our Next.js API route
+            if (answers.email) {
+                // Ensure the status matches what we just set
+                const currentStatus = (age < 18 || participatedRecently) ? "ineligible" : hasConditions ? "maybe" : "eligible";
+                await fetch("/api/notify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: answers.email,
+                        type: "SCREENER_RESULT",
+                        studyTitle: study.title,
+                        status: currentStatus
+                    })
+                }).catch(err => console.error("Failed to send notification:", err));
+            }
+
             // If logged in, we could sync this to backend
             if (status === "authenticated") {
                 await fetch("/api/proxy/participants/screener", {
@@ -238,6 +254,28 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                                     <option value="evening">Evening (5pm - 8pm)</option>
                                 </select>
                             </div>
+
+                            <div className="pt-4 border-t border-slate-700/50 mt-4">
+                                <label className="flex flex-row items-start gap-4 cursor-pointer group">
+                                    <div className="relative flex items-center justify-center mt-1">
+                                        <input
+                                            type="checkbox"
+                                            className="appearance-none peer w-5 h-5 border-2 border-slate-600 rounded-md bg-slate-900 checked:bg-cyan-500 checked:border-cyan-500 transition-all cursor-pointer"
+                                            checked={answers.contactConsent === true}
+                                            onChange={(e) => handleAnswer("contactConsent", e.target.checked)}
+                                        />
+                                        <CheckCircle2 className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-white text-sm font-medium group-hover:text-cyan-400 transition-colors">
+                                            Consent to Contact
+                                        </p>
+                                        <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                                            By checking this box, I agree that the research team may contact me via email or phone regarding my eligibility and potential study participation.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 );
@@ -315,11 +353,27 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                             </div>
                             <h2 className="text-3xl font-black text-white italic mb-4">Further Screening Needed</h2>
                             <p className="text-slate-300 leading-relaxed mb-8">
-                                You meet most criteria, but we need to clarify a few details. Please schedule a quick call with a coordinator.
+                                You meet most criteria for the <strong>{study.title}</strong> study, but we need to clarify a few details. Please schedule a quick call with a coordinator.
                             </p>
-                            <button className="w-full py-4 bg-amber-500 hover:bg-amber-400 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2">
-                                <Calendar size={18} /> Schedule Screening Call
-                            </button>
+                            {status === "authenticated" ? (
+                                <button
+                                    onClick={() => alert('Opening screening calendar...')}
+                                    className="w-full py-4 bg-amber-500 hover:bg-amber-400 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Calendar size={18} /> Schedule Screening Call
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        sessionStorage.setItem(`screenerState_${study.slug}`, JSON.stringify({ status: "maybe" }));
+                                        const callbackUrl = encodeURIComponent(window.location.pathname);
+                                        router.push(`/signin?callbackUrl=${callbackUrl}`);
+                                    }}
+                                    className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-2"
+                                >
+                                    Login / Sign Up to Continue <ArrowRight size={18} />
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -330,11 +384,29 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                             </div>
                             <h2 className="text-3xl font-black text-white italic mb-4">Not Eligible at this time</h2>
                             <p className="text-slate-300 leading-relaxed mb-8">
-                                Unfortunately, you do not meet the specific criteria for this study. However, we have added you to our database for future opportunities.
+                                Unfortunately, you do not meet the specific criteria for the <strong>{study.title}</strong> study. However, you can create a profile to join our database for future opportunities.
                             </p>
-                            <Link href="/studies" className="inline-block px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold uppercase tracking-widest rounded-xl transition-all">
-                                Browse Other Studies
-                            </Link>
+                            {status === "authenticated" ? (
+                                <Link href="/studies" className="inline-block px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold uppercase tracking-widest rounded-xl transition-all">
+                                    Browse Other Studies
+                                </Link>
+                            ) : (
+                                <div className="flex flex-col gap-4">
+                                    <button
+                                        onClick={() => {
+                                            sessionStorage.setItem(`screenerState_${study.slug}`, JSON.stringify({ status: "ineligible" }));
+                                            const callbackUrl = encodeURIComponent(window.location.pathname);
+                                            router.push(`/signin?callbackUrl=${callbackUrl}`);
+                                        }}
+                                        className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        Create Profile & Join Database <ArrowRight size={18} />
+                                    </button>
+                                    <Link href="/studies" className="inline-block w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-black uppercase tracking-widest rounded-xl transition-all">
+                                        Browse Other Studies
+                                    </Link>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -370,7 +442,11 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                         </button>
                         <button
                             onClick={nextStep}
-                            className="flex items-center gap-2 px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold uppercase tracking-widest rounded-xl shadow-lg shadow-cyan-600/20 transition-all"
+                            disabled={currentStep === 4 && !answers.contactConsent}
+                            className={`flex items-center gap-2 px-8 py-3 font-bold uppercase tracking-widest rounded-xl transition-all ${currentStep === 4 && !answers.contactConsent
+                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/20'
+                                }`}
                         >
                             {currentStep === 4 ? 'Check Result' : 'Next'} <ChevronRight size={16} />
                         </button>

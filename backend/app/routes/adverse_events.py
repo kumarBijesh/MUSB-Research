@@ -74,6 +74,21 @@ async def list_aes(
     return result
 
 
+# ─── Admin: List All AEs (alias) ─────────────────────────────────────────────
+
+@router.get("/all", response_model=List[AdverseEventOut])
+async def list_all_aes(
+    current_user=Depends(require_admin),
+    db=Depends(get_db)
+):
+    """Admin: alias endpoint for /all path used by the frontend."""
+    result = []
+    async for doc in db["adverseEvents"].find().sort("reportedAt", -1).limit(200):
+        result.append(_map_ae(doc))
+    return result
+
+
+
 # ─── Admin: Update AE Status ─────────────────────────────────────────────────
 
 @router.patch("/{ae_id}/status")
@@ -94,6 +109,30 @@ async def update_ae_status(
         {"$set": {"status": new_status, "updatedAt": datetime.now(timezone.utc)}}
     )
     return {"message": f"AE status updated to {new_status}"}
+
+
+# ─── Admin: Simple PATCH /{ae_id} for status update ──────────────────────────
+
+@router.patch("/{ae_id}")
+async def update_ae(
+    ae_id: str,
+    body: dict,
+    current_user=Depends(require_admin),
+    db=Depends(get_db)
+):
+    """Admin: update AE fields (status etc.) via simple PATCH body."""
+    update_fields: dict = {"updatedAt": datetime.now(timezone.utc)}
+    if "status" in body:
+        allowed = ["Under Review", "RESOLVED", "Resolved", "PENDING", "Escalated", "Closed"]
+        if body["status"] not in allowed:
+            raise HTTPException(status_code=400, detail=f"Allowed statuses: {allowed}")
+        update_fields["status"] = body["status"]
+    if "actionTaken" in body:
+        update_fields["actionTaken"] = encrypt_data(body["actionTaken"])
+    await db["adverseEvents"].update_one(
+        {"_id": ObjectId(ae_id)}, {"$set": update_fields}
+    )
+    return {"message": "AE updated"}
 
 
 # ─── Participant: My AEs ──────────────────────────────────────────────────────

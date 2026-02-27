@@ -16,6 +16,7 @@ from app.auth import (
 from app.routes.audit import log_audit_event
 from app.utils.security import encrypt_data, decrypt_data
 from app.utils.otp import generate_otp, verify_otp
+from app.utils.email import send_email_notification
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -232,19 +233,40 @@ async def google_upsert(request: Request, body: GoogleUpsertRequest, db=Depends(
 
 @router.post("/verify/send")
 async def send_verification(request: Request, body: VerificationRequest, db=Depends(get_db)):
-    """Send a verification code via Email or Phone (Mocked)."""
-    otp = generate_otp(body.identifier)
+    """Send a verification code via Email or Phone."""
     
-    # Mock sending logic
+    # Check user existence based on action purpose
+    user = await db["users"].find_one({"email": body.identifier})
+    
+    if body.purpose == "LOGIN":
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="Account not found. Please sign up or sign in with Google."
+            )
+    elif body.purpose == "REGISTER":
+        if user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Account already exists. Please sign in instead."
+            )
+
+    otp = generate_otp(body.identifier, body.purpose)
+    
     channel = "Phone" if body.type == "PHONE" else "Email"
-    print(f"DEBUG: Sending OTP {otp} to {body.identifier} via {channel}")
+    if channel == "Email":
+        subject = f"Your MUSB {body.purpose.title()} Verification Code"
+        email_body = f"Hello,\n\nYour 6-digit verification code for {body.purpose.lower()} is: {otp}\n\nPlease enter this code to securely proceed. This code will expire in 10 minutes.\n\nBest,\nThe MUSB Research Team"
+        await send_email_notification(body.identifier, subject, email_body)
+    else:
+        print(f"DEBUG: Sending OTP {otp} to {body.identifier} via {channel} for {body.purpose}")
     
     await log_audit_event(
         db=db,
         user_id="SYSTEM",
         action="VERIFY_SEND",
         resource=f"Identity:{body.identifier}",
-        details=f"OTP sent via {channel}",
+        details=f"OTP sent via {channel} (Purpose: {body.purpose})",
         request=request
     )
     
@@ -254,7 +276,7 @@ async def send_verification(request: Request, body: VerificationRequest, db=Depe
 @router.post("/verify/check")
 async def check_verification(request: Request, body: VerificationCheck, db=Depends(get_db)):
     """Check a verification code and update user/participant status."""
-    is_valid = verify_otp(body.identifier, body.code)
+    is_valid = verify_otp(body.identifier, body.code, body.purpose)
     
     if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")

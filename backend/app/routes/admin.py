@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Depends # type: ignore
+from datetime import datetime, timezone
 from typing import Optional
-from app.database import get_db # type: ignore
-from app.auth import require_admin, require_coordinator_or_admin # type: ignore
-from motor.motor_asyncio import AsyncIOMotorDatabase # type: ignore
+from fastapi import APIRouter, Depends, HTTPException
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+from app.database import get_db
+from app.auth import require_admin, require_coordinator_or_admin
+from app.utils.security import decrypt_data
 
 router = APIRouter(prefix="/api/admin", tags=["Admin Dashboard"])
 
@@ -46,8 +50,6 @@ async def get_recruitment_funnel(
     """
     Get data for the recruitment funnel chart.
     """
-    # In a real app, 'impressions' and 'clicks' would come from analytics.
-    # Here we show the stage counts from our DB.
     leads = await db["participants"].count_documents({})
     screened = await db["participants"].count_documents({"status": {"$in": ["SCREENED", "CONSENTED", "ENROLLED", "ACTIVE", "COMPLETED"]}})
     consented = await db["participants"].count_documents({"status": {"$in": ["CONSENTED", "ENROLLED", "ACTIVE", "COMPLETED"]}})
@@ -59,6 +61,7 @@ async def get_recruitment_funnel(
         {"label": "Signed Consent", "value": consented, "color": "bg-cyan-700", "width": f"{int((consented/max(leads,1))*100)}%"},
         {"label": "Finalized Enrollment", "value": enrolled, "color": "bg-emerald-500", "width": f"{int((enrolled/max(leads,1))*100)}%"},
     ]
+
 @router.get("/users")
 async def list_users(
     role: Optional[str] = None,
@@ -68,7 +71,6 @@ async def list_users(
     """
     Get a list of all users for team management.
     """
-    from app.utils.security import decrypt_data # type: ignore
     query = {}
     if role:
         query["role"] = role
@@ -83,3 +85,96 @@ async def list_users(
             "createdAt": u["createdAt"]
         })
     return users
+
+@router.post("/studies/{study_id}/approve")
+async def approve_study(
+    study_id: str,
+    current_user=Depends(require_admin),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """
+    Approve a study that is currently UNDER_REVIEW.
+    Sets status to ACTIVE.
+    """
+    # Search by ID or Slug
+    study = None
+    try:
+        study = await db["studies"].find_one({"_id": ObjectId(study_id)})
+    except Exception:
+        study = await db["studies"].find_one({"slug": study_id})
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    await db["studies"].update_one(
+        {"_id": study["_id"]},
+        {"$set": {
+            "status": "ACTIVE",
+            "updatedAt": datetime.now(timezone.utc),
+            "approvedAt": datetime.now(timezone.utc),
+            "approvedBy": current_user.user_id
+        }}
+    )
+    
+    return {"status": "success", "message": "Study approved and is now ACTIVE"}
+
+
+# ─── Admin: Invite Staff ──────────────────────────────────────────────────────
+
+from pydantic import BaseModel
+from app.utils.security import encrypt_data as _enc
+
+class InviteBody(BaseModel):
+    email: str
+    name: str = ""
+    role: str = "COORDINATOR"
+
+@router.post("/invite")
+async def invite_staff(
+    body: InviteBody,
+    current_user=Depends(require_admin),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """Admin: create a placeholder staff account."""
+    existing = await db["users"].find_one({"email": body.email})
+    if existing:
+        raise HTTPException(status_code=409, detail="A user with this email already exists.")
+
+    import secrets, hashlib
+    temp_password = secrets.token_urlsafe(12)
+    hashed = hashlib.sha256(temp_password.encode()).hexdigest()
+
+    now = datetime.now(timezone.utc)
+    doc = {
+        "email": body.email,
+        "name": _enc(body.name) if body.name else None,
+        "role": body.role,
+        "passwordHash": hashed,
+        "mustChangePassword": True,
+        "invitedBy": current_user.user_id,
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    await db["users"].insert_one(doc)
+    return {"message": f"Staff account created for {body.email}", "tempPassword": temp_password}
+
+
+# ─── Admin: Save Settings ─────────────────────────────────────────────────────
+
+@router.post("/settings")
+async def save_settings(
+    body: dict,
+    current_user=Depends(require_admin),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """Admin: persist global system configuration settings."""
+    await db["settings"].update_one(
+        {"_id": "global"},
+        {"$set": {
+            "updatedAt": datetime.now(timezone.utc),
+            "updatedBy": current_user.user_id,
+            **body,
+        }},
+        upsert=True,
+    )
+    return {"message": "Settings saved successfully"}

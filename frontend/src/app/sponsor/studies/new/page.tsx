@@ -19,9 +19,9 @@ export default function NewStudyPage() {
                             <FlaskConical size={40} className="text-amber-400" />
                         </div>
 
-                        <h1 className="text-4xl font-black text-white italic tracking-tight mb-4">Launch a New Study</h1>
+                        <h1 className="text-4xl font-black text-white italic tracking-tight mb-4">Inquire a New Study</h1>
                         <p className="text-slate-400 text-lg max-w-lg mb-10 leading-relaxed">
-                            Ready to start your next breakthrough? Submitting a new study protocol initiates our rapid review and site activation process.
+                            Interested in starting a new trial? Submitting an inquiry initiates our rapid protocol review and feasibility assessment process.
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mb-10 text-left">

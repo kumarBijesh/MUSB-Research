@@ -9,6 +9,7 @@ import {
     ShieldAlert, FileText, Settings, Search, Bell, UserCircle, LogOut, BarChart, Users2,
 } from "lucide-react";
 import { AdminAuth, type PortalUser } from "@/lib/portal-auth";
+import NotificationBell from "@/components/NotificationBell";
 
 const navItems = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -112,10 +113,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
 
                     <div className="flex items-center gap-6">
-                        <button className="relative p-2 text-slate-500 hover:text-white transition-colors">
-                            <Bell size={20} />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-slate-900" />
-                        </button>
+                        <NotificationBell />
                         <div className="h-6 w-px bg-slate-800" />
                         <div className="flex items-center gap-3">
                             <div className="text-right">

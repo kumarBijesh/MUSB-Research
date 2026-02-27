@@ -38,6 +38,25 @@ export default function AdminStudiesPage() {
         }
     }, [session]);
 
+    const handleApprove = async (studyId: string) => {
+        if (!confirm("Are you sure you want to approve this study and make it ACTIVE?")) return;
+
+        try {
+            const res = await fetch(`/api/proxy/admin/studies/${studyId}/approve`, {
+                method: "POST"
+            });
+            if (res.ok) {
+                alert("Study approved successfully!");
+                // Update local state
+                setStudies(prev => prev.map(s => s.id === studyId ? { ...s, status: 'ACTIVE' } : s));
+            } else {
+                alert("Failed to approve study.");
+            }
+        } catch (err) {
+            alert("Connection error.");
+        }
+    };
+
     return (
         <div className="space-y-8">
             <div className="flex justify-between items-end">
@@ -87,6 +106,15 @@ export default function AdminStudiesPage() {
                                 <Link href={`/admin/studies/${study.id}`} className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[13px] font-bold uppercase tracking-widest text-center transition-all flex items-center justify-center gap-2 border border-white/5 group-hover:border-white/10">
                                     <FileEdit size={14} /> Manage Study
                                 </Link>
+
+                                {(study.status === 'UNDER_REVIEW') && (
+                                    <button
+                                        onClick={() => handleApprove(study.id)}
+                                        className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[13px] font-black uppercase tracking-widest text-center transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Plus size={14} /> Quick Approve
+                                    </button>
+                                )}
 
                                 {(study.status === 'ACTIVE' || study.status === 'RECRUITING') && (
                                     <button className="flex-1 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-xl text-[13px] font-bold uppercase tracking-widest text-center transition-all flex items-center justify-center gap-2">

@@ -287,7 +287,7 @@ export default function SponsorDashboard() {
                             <ExternalLink size={14} /> Visit Public Directory
                         </Link>
                         <Link href="/sponsor/dashboard/new-study" className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-600/20">
-                            <FlaskConical size={14} /> Launch New Study
+                            <FlaskConical size={14} /> Inquire New Study
                         </Link>
                         <button
                             onClick={handleExportReport}
@@ -364,8 +364,8 @@ export default function SponsorDashboard() {
                                     </div>
                                 ) : studies.length === 0 ? (
                                     <div className="p-12 text-center text-slate-500">
-                                        <p className="text-[13px] font-bold uppercase tracking-widest mb-4">No studies launched yet</p>
-                                        <Link href="/sponsor/dashboard/new-study" className="text-amber-500 font-bold hover:underline">Launch your first protocol</Link>
+                                        <p className="text-[13px] font-bold uppercase tracking-widest mb-4">No studies found</p>
+                                        <Link href="/sponsor/dashboard/new-study" className="text-amber-500 font-bold hover:underline">Inquire about your first protocol</Link>
                                     </div>
                                 ) : studies.map((s, idx) => (
                                     <div key={idx} className="p-8 hover:bg-white/[0.02] transition-all group flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -376,13 +376,15 @@ export default function SponsorDashboard() {
                                             <div>
                                                 <div className="flex items-center gap-3 mb-1">
                                                     <h3 className="text-lg font-black text-white group-hover:text-amber-400 transition-colors uppercase italic">{s.title}</h3>
-                                                    <span className={`px-2 py-0.5 rounded text-[13px] font-black tracking-widest uppercase border ${s.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-800 text-slate-400 border-white/10"}`}>
-                                                        {s.status}
+                                                    <span className={`px-2 py-0.5 rounded text-[13px] font-black tracking-widest uppercase border ${s.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                                        s.status === "UNDER_REVIEW" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" :
+                                                            "bg-slate-800 text-slate-400 border-white/10"}`}>
+                                                        {s.status.replace('_', ' ')}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-4 text-[13px] font-medium text-slate-500">
                                                     <span className="flex items-center gap-1.5"><Target size={12} /> {s.targetParticipants || s.target} Target</span>
-                                                    <span className="flex items-center gap-1.5"><Calendar size={12} /> Launched {new Date(s.createdAt).toLocaleDateString()}</span>
+                                                    <span className="flex items-center gap-1.5"><Calendar size={12} /> Submitted {new Date(s.createdAt).toLocaleDateString()}</span>
                                                 </div>
                                             </div>
                                         </div>

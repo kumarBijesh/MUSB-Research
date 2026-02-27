@@ -7,8 +7,9 @@ from app.database import connect_db, close_db
 from app.routes import (
     auth, studies, participants, adverse_events, messages, 
     tasks, documents, data_logs, sponsor, audit, scheduling, inventory, admin,
-    assessments
+    assessments, notifications, export
 )
+from app.routes import super_admin
 
 settings = get_settings()
 
@@ -56,6 +57,9 @@ app.include_router(scheduling.router)
 app.include_router(inventory.router)
 app.include_router(admin.router)
 app.include_router(assessments.router)
+app.include_router(notifications.router)
+app.include_router(export.router)
+app.include_router(super_admin.router)
 
 
 
