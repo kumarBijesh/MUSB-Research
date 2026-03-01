@@ -523,15 +523,6 @@ function SignInContent() {
                                 </div>
                             )}
 
-                            {/* Forgot Password */}
-                            {isLogin && (
-                                <div className="flex justify-end -mt-1">
-                                    <Link href="#" className="text-[13px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors">
-                                        Forgot Password?
-                                    </Link>
-                                </div>
-                            )}
-
                             {/* Submit Button */}
                             <button
                                 type="submit"
