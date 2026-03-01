@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import InactivityTimer from "@/components/compliance/InactivityTimer";
@@ -9,6 +9,13 @@ import CookieConsent from "@/components/compliance/CookieConsent";
 import CosmicBackground from "@/components/CosmicBackground";
 
 const inter = Inter({ subsets: ["latin"] });
+
+export const viewport: Viewport = {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+};
 
 export const metadata: Metadata = {
     metadataBase: new URL("https://musbresearch.com"),
@@ -57,7 +64,7 @@ export default async function RootLayout({
 
     return (
         <html lang="en" className={`${performanceClasses} ${deviceClasses}`}>
-            <body className={`${inter.className} min-h-screen bg-[#0A1128] text-white selection:bg-cyan-500/30 antialiased`}>
+            <body className={`${inter.className} min-h-[100dvh] w-full overflow-x-hidden bg-[#0A1128] text-white selection:bg-cyan-500/30 antialiased`}>
                 <CosmicBackground />
                 <DeviceAdjuster />
                 <CookieConsent />
