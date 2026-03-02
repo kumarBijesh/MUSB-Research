@@ -70,6 +70,24 @@ const adverseEvents = [
     { id: "AE-003", participant: "P-0071", severity: "MODERATE", description: "Persistent cough, 3 days", date: "Feb 12, 2025", status: "Under Review" },
 ];
 
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+    UNDER_REVIEW: { label: "Pending Approval", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+    ACTIVE: { label: "Live on MusB Site", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+    DRAFT: { label: "Draft", cls: "bg-slate-800 text-slate-400 border-white/10" },
+    RECRUITING: { label: "Recruiting", cls: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+    const cfg = STATUS_CONFIG[status] ?? { label: status.replace(/_/g, " "), cls: "bg-slate-800 text-slate-400 border-white/10" };
+    return (
+        <span className={`px-2 py-0.5 rounded text-[11px] font-black tracking-widest uppercase border whitespace-nowrap ${cfg.cls}`}>
+            {cfg.label}
+        </span>
+    );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const severity: Record<string, string> = {
@@ -90,7 +108,7 @@ export default function SponsorDashboard() {
     const portalSession = typeof window !== "undefined" ? AdminAuth.get() : null;
     const sponsorUser = portalSession?.user;
 
-    const [activeTab, setActiveTab] = useState<"overview" | "participants" | "safety" | "documents" | "reports">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "mystudies" | "participants" | "safety" | "documents" | "reports">("overview");
     const [stats, setStats] = useState<any>(null);
     const [studies, setStudies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -98,6 +116,21 @@ export default function SponsorDashboard() {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(3);
+
+    // ── Study submission form state ──
+    const [showSubmitForm, setShowSubmitForm] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [submitError, setSubmitError] = useState("");
+    const [formData, setFormData] = useState({
+        title: "",
+        description: "",
+        condition: "",
+        location: "",
+        duration: "",
+        compensation: "",
+        timeCommitment: "",
+    });
     const profileRef = useRef<HTMLDivElement>(null);
     const notificationRef = useRef<HTMLDivElement>(null);
 
@@ -147,7 +180,7 @@ export default function SponsorDashboard() {
             // CSV content (Special Sponsor Request: Name, Email, Study Title)
             let csvContent = `STUDY SUMMARY: ${studyTitle}\n`;
             csvContent += `Status: ${activeStudy.status}\n`;
-            csvContent += `Progress: ${Math.round((activeStudy.enrolledCount / activeStudy.participantCount) * 100) || 0}% Enrollment\n\n`;
+            csvContent += `Progress: ${Math.round(((activeStudy.enrolled ?? activeStudy.enrolledCount ?? 0) / Math.max(activeStudy.target ?? activeStudy.participantCount ?? 1, 1)) * 100)}% Enrollment\n\n`;
             csvContent += "Participant Name,Email,Study Title\n";
 
             // CSV Rows
@@ -180,11 +213,15 @@ export default function SponsorDashboard() {
         { id: 3, title: "System Analytics", role: "AUTOMATED", message: "Automated audit log sync completed for all active sites.", time: "5h ago", color: "text-slate-400", bg: "bg-slate-400/10", read: true },
     ];
 
+    const getToken = () => AdminAuth.get()?.token ?? "";
+
     const fetchData = async () => {
+        const token = getToken();
+        const authHeader = token ? { "Authorization": `Bearer ${token}` } : {};
         try {
             const [statsRes, studiesRes] = await Promise.all([
-                fetch("/api/proxy/sponsor/stats"),
-                fetch("/api/proxy/sponsor/studies")
+                fetch("/api/proxy/sponsor/stats", { headers: authHeader }),
+                fetch("/api/proxy/sponsor/studies", { headers: authHeader }),
             ]);
 
             if (statsRes.ok) setStats(await statsRes.json());
@@ -196,12 +233,48 @@ export default function SponsorDashboard() {
         }
     };
 
+    const handleStudySubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitLoading(true);
+        setSubmitError("");
+        try {
+            const res = await fetch("/api/proxy/sponsor/studies", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${getToken()}`,
+                },
+                body: JSON.stringify({
+                    ...formData,
+                    slug: "auto",
+                    status: "UNDER_REVIEW",
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || "Submission failed");
+            }
+            const created = await res.json();
+            setStudies(prev => [created, ...prev]);
+            setSubmitSuccess(true);
+            setShowSubmitForm(false);
+            setFormData({ title: "", description: "", condition: "", location: "", duration: "", compensation: "", timeCommitment: "" });
+            setTimeout(() => setSubmitSuccess(false), 4000);
+        } catch (err: any) {
+            setSubmitError(err.message || "Something went wrong. Please try again.");
+        } finally {
+            setSubmitLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchData();
     }, []);
 
     const study = studies[0] || sponsoredStudies[0]; // Fallback to mock for demo UI consistency if empty
-    const enrollmentPct = stats ? Math.round((stats.enrolledParticipants / stats.totalParticipants) * 100) : 0;
+    const enrollmentPct = stats && stats.totalParticipants > 0
+        ? Math.round((stats.enrolledParticipants / stats.totalParticipants) * 100)
+        : 0;
     const maxWeekly = Math.max(...weeklyEnrollment);
 
     return (
@@ -341,6 +414,7 @@ export default function SponsorDashboard() {
                 <div className="flex items-center gap-1 mb-8 bg-slate-950/50 p-1 rounded-2xl border border-white/5 w-fit">
                     {[
                         { id: "overview", label: "Overview", icon: PieChart },
+                        { id: "mystudies", label: "My Studies", icon: FlaskConical },
                         { id: "participants", label: "Participants", icon: Users },
                         { id: "safety", label: "Safety", icon: Shield },
                         { id: "documents", label: "Documents", icon: FileText },
@@ -413,11 +487,7 @@ export default function SponsorDashboard() {
                                             <div>
                                                 <div className="flex items-center gap-3 mb-1">
                                                     <h3 className="text-lg font-black text-white group-hover:text-amber-400 transition-colors uppercase italic">{s.title}</h3>
-                                                    <span className={`px-2 py-0.5 rounded text-[13px] font-black tracking-widest uppercase border ${s.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                                                        s.status === "UNDER_REVIEW" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" :
-                                                            "bg-slate-800 text-slate-400 border-white/10"}`}>
-                                                        {s.status.replace('_', ' ')}
-                                                    </span>
+                                                    <StatusBadge status={s.status} />
                                                 </div>
                                                 <div className="flex items-center gap-4 text-[13px] font-medium text-slate-500">
                                                     <span className="flex items-center gap-1.5"><Target size={12} /> {s.targetParticipants || s.target} Target</span>
@@ -492,6 +562,181 @@ export default function SponsorDashboard() {
                 {/* ═══════════════════════════════════════════════════════
                     PARTICIPANTS TAB
                 ═══════════════════════════════════════════════════════ */}
+                {/* ═══════════════════════════════════════════════════════
+                    MY STUDIES TAB
+                ═══════════════════════════════════════════════════════ */}
+                {activeTab === "mystudies" && (
+                    <div className="space-y-6 animate-in fade-in duration-500">
+
+                        {/* Success Banner */}
+                        {submitSuccess && (
+                            <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 font-bold text-sm animate-in fade-in duration-300">
+                                <CheckCircle2 size={18} />
+                                Study submitted! It is now <strong className="text-emerald-300">Under Review</strong> by MUSB administrators.
+                            </div>
+                        )}
+
+                        {/* Studies List */}
+                        <div className="glass border border-white/5 rounded-3xl overflow-hidden bg-slate-900/40">
+                            <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-sm font-black text-white uppercase tracking-[0.2em] italic">My Studies</h2>
+                                    <p className="text-[12px] text-slate-500 mt-1 font-bold">{studies.length} protocol{studies.length !== 1 ? "s" : ""} submitted</p>
+                                </div>
+                                <button
+                                    onClick={() => { setShowSubmitForm(v => !v); setSubmitError(""); }}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-[13px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-600/20"
+                                >
+                                    <FlaskConical size={14} />
+                                    {showSubmitForm ? "Cancel" : "Submit New Study"}
+                                </button>
+                            </div>
+
+                            {/* ── Inline Submission Form ── */}
+                            {showSubmitForm && (
+                                <form onSubmit={handleStudySubmit} className="p-8 border-b border-white/5 bg-amber-500/[0.02] space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <h3 className="text-sm font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                                        <FlaskConical size={14} /> New Study Submission
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div className="md:col-span-2">
+                                            <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest block mb-2">Study Title <span className="text-amber-500">*</span></label>
+                                            <input
+                                                required
+                                                value={formData.title}
+                                                onChange={e => setFormData(p => ({ ...p, title: e.target.value }))}
+                                                placeholder="e.g. Gut Microbiome & Cognitive Function Study"
+                                                className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/60 placeholder:text-slate-600 transition-colors"
+                                            />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest block mb-2">Description <span className="text-amber-500">*</span></label>
+                                            <textarea
+                                                required
+                                                rows={4}
+                                                value={formData.description}
+                                                onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
+                                                placeholder="Describe the study objectives, methodology, and expected outcomes…"
+                                                className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/60 placeholder:text-slate-600 transition-colors resize-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest block mb-2">Medical Condition <span className="text-amber-500">*</span></label>
+                                            <input
+                                                required
+                                                value={formData.condition}
+                                                onChange={e => setFormData(p => ({ ...p, condition: e.target.value }))}
+                                                placeholder="e.g. IBS, Type 2 Diabetes, Hypertension"
+                                                className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/60 placeholder:text-slate-600 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest block mb-2">Location <span className="text-amber-500">*</span></label>
+                                            <input
+                                                required
+                                                value={formData.location}
+                                                onChange={e => setFormData(p => ({ ...p, location: e.target.value }))}
+                                                placeholder="e.g. Remote, Boston MA, Hybrid"
+                                                className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/60 placeholder:text-slate-600 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest block mb-2">Duration <span className="text-amber-500">*</span></label>
+                                            <input
+                                                required
+                                                value={formData.duration}
+                                                onChange={e => setFormData(p => ({ ...p, duration: e.target.value }))}
+                                                placeholder="e.g. 4 Weeks, 3 Months"
+                                                className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/60 placeholder:text-slate-600 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest block mb-2">Compensation</label>
+                                            <input
+                                                value={formData.compensation}
+                                                onChange={e => setFormData(p => ({ ...p, compensation: e.target.value }))}
+                                                placeholder="e.g. $300, Gift Card, None"
+                                                className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/60 placeholder:text-slate-600 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest block mb-2">Time Commitment</label>
+                                            <input
+                                                value={formData.timeCommitment}
+                                                onChange={e => setFormData(p => ({ ...p, timeCommitment: e.target.value }))}
+                                                placeholder="e.g. Low, Medium, High"
+                                                className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/60 placeholder:text-slate-600 transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {submitError && (
+                                        <div className="flex items-center gap-2 text-red-400 text-sm font-bold bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+                                            <AlertTriangle size={14} /> {submitError}
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center gap-3 pt-2">
+                                        <div className="flex items-center gap-2 text-[12px] text-slate-500 flex-1">
+                                            <Globe size={12} className="text-amber-500/50" />
+                                            Submitted as <strong className="text-amber-400">UNDER REVIEW</strong> — visible on the MusB site only after admin approval.
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={submitLoading}
+                                            className="flex items-center gap-2 px-8 py-3 bg-amber-600 hover:bg-amber-500 text-white text-[13px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {submitLoading ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />}
+                                            {submitLoading ? "Submitting…" : "Submit for Review"}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+
+                            {/* Studies List */}
+                            <div className="divide-y divide-white/5">
+                                {loading ? (
+                                    <div className="p-12 text-center text-slate-500">
+                                        <Activity size={24} className="animate-spin mx-auto mb-4 opacity-20" />
+                                        <p className="text-[13px] font-bold uppercase tracking-widest">Loading studies…</p>
+                                    </div>
+                                ) : studies.length === 0 ? (
+                                    <div className="p-12 text-center text-slate-500">
+                                        <FlaskConical size={28} className="mx-auto mb-4 opacity-20" />
+                                        <p className="text-[13px] font-bold uppercase tracking-widest mb-2">No studies submitted yet</p>
+                                        <p className="text-[12px] text-slate-600">Click &quot;Submit New Study&quot; above to get started.</p>
+                                    </div>
+                                ) : studies.map((s, idx) => (
+                                    <div key={idx} className="p-6 hover:bg-white/[0.02] transition-all group">
+                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                                            <div className="flex items-start gap-4 flex-1 min-w-0">
+                                                <div className="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center border border-white/5 group-hover:border-amber-500/30 transition-all shrink-0">
+                                                    <HeartPulse size={20} className="text-amber-500/50" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                        <h3 className="text-base font-black text-white group-hover:text-amber-400 transition-colors uppercase italic truncate">{s.title}</h3>
+                                                        <StatusBadge status={s.status} />
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-4 text-[12px] font-medium text-slate-500 mt-1">
+                                                        {s.condition && <span className="flex items-center gap-1"><Target size={11} /> {s.condition}</span>}
+                                                        {s.location && <span className="flex items-center gap-1"><Globe size={11} /> {s.location}</span>}
+                                                        {s.compensation && <span className="flex items-center gap-1"><DollarSign size={11} /> {s.compensation}</span>}
+                                                        <span className="flex items-center gap-1"><Calendar size={11} /> Submitted {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : "—"}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <Link href={`/sponsor/studies/${s.slug || s.id}`} className="shrink-0 px-5 py-2 bg-slate-900 border border-white/10 hover:border-amber-500/30 text-white text-[12px] font-black uppercase tracking-widest rounded-xl transition-all">
+                                                View
+                                            </Link>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === "participants" && (
                     <div className="glass border border-white/5 rounded-2xl p-6">
                         <div className="flex justify-between items-center mb-6">

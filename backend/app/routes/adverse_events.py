@@ -89,6 +89,21 @@ async def list_all_aes(
 
 
 
+# ─── Participant: My AEs ──────────────────────────────────────────────────────
+
+@router.get("/me", response_model=List[AdverseEventOut])
+async def my_aes(current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Participant: view own reported AEs."""
+    participant = await db["participants"].find_one({"userId": current_user.user_id})
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant profile not found")
+
+    result = []
+    async for doc in db["adverseEvents"].find({"participantId": str(participant["_id"])}).sort("reportedAt", -1):
+        result.append(_map_ae(doc))
+    return result
+
+
 # ─── Admin: Update AE Status ─────────────────────────────────────────────────
 
 @router.patch("/{ae_id}/status")
@@ -133,18 +148,3 @@ async def update_ae(
         {"_id": ObjectId(ae_id)}, {"$set": update_fields}
     )
     return {"message": "AE updated"}
-
-
-# ─── Participant: My AEs ──────────────────────────────────────────────────────
-
-@router.get("/me", response_model=List[AdverseEventOut])
-async def my_aes(current_user=Depends(get_current_user), db=Depends(get_db)):
-    """Participant: view own reported AEs."""
-    participant = await db["participants"].find_one({"userId": current_user.user_id})
-    if not participant:
-        raise HTTPException(status_code=404, detail="Participant profile not found")
-
-    result = []
-    async for doc in db["adverseEvents"].find({"participantId": str(participant["_id"])}).sort("reportedAt", -1):
-        result.append(_map_ae(doc))
-    return result

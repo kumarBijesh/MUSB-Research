@@ -123,6 +123,7 @@ async def approve_study(
 
 from pydantic import BaseModel
 from app.utils.security import encrypt_data as _enc
+from app.auth import get_password_hash as _hash_pw
 
 class InviteBody(BaseModel):
     email: str
@@ -140,9 +141,10 @@ async def invite_staff(
     if existing:
         raise HTTPException(status_code=409, detail="A user with this email already exists.")
 
-    import secrets, hashlib
+    import secrets
     temp_password = secrets.token_urlsafe(12)
-    hashed = hashlib.sha256(temp_password.encode()).hexdigest()
+    # Use bcrypt (same as the login verify_password) so the invited user can actually log in
+    hashed = _hash_pw(temp_password)
 
     now = datetime.now(timezone.utc)
     doc = {

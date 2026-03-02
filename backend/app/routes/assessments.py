@@ -82,6 +82,8 @@ async def get_participant_responses(
     db=Depends(get_db)
 ):
     """Get all submissions for a specific participant (Admin or the participant themselves)."""
+    if not ObjectId.is_valid(participant_id):
+        raise HTTPException(status_code=400, detail="Invalid participant ID")
     participant = await db["participants"].find_one({"_id": ObjectId(participant_id)})
     if not participant:
          raise HTTPException(status_code=404, detail="Participant not found")

@@ -125,10 +125,9 @@ async def launch_study(
     doc["createdAt"] = datetime.now(timezone.utc)
     doc["updatedAt"] = datetime.now(timezone.utc)
 
-    # If it's being "Published" (Inquired), set status to UNDER_REVIEW
-    # We don't launch immediately anymore; admin must approve.
+    # If it's being submitted as an inquiry, set status to UNDER_REVIEW and notify admin
     is_inquiry = False
-    if doc.get("status") == "PUBLISHED":
+    if doc.get("status") in ("PUBLISHED", "UNDER_REVIEW"):
         doc["status"] = "UNDER_REVIEW"
         is_inquiry = True
 

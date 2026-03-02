@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { ParticipantAuth } from "@/lib/portal-auth";
 import {
     Calendar, CheckCircle2, Clock, Lock, Loader2,
     X, Send, Pill, HeartPulse, ClipboardList, Activity, Star
@@ -250,16 +250,19 @@ function ScaleButtons({ opts, value, onChange }: { opts: string[]; value: string
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function TasksPage() {
-    const { data: session } = useSession();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
 
+    const getAuthHeader = () => {
+        const token = ParticipantAuth.get()?.token;
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
     const fetchTasks = useCallback(async () => {
-        if (!session) return;
         setLoading(true);
         try {
-            const res = await fetch("/api/proxy/tasks/me");
+            const res = await fetch("/api/proxy/tasks/me", { headers: getAuthHeader() });
             if (res.ok) {
                 const data = await res.json();
                 setTasks(data);
@@ -269,19 +272,20 @@ export default function TasksPage() {
         } finally {
             setLoading(false);
         }
-    }, [session]);
+    }, []);
 
     useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
     // Submit data log then mark task complete
     const handleComplete = async (taskId: string, formData: Record<string, unknown>): Promise<boolean> => {
+        const authHeader = getAuthHeader();
         try {
             // 1. Submit the data log
             const task = tasks.find(t => t.id === taskId);
             const logType = mapTaskTypeToLogType(task?.type ?? "");
             await fetch("/api/proxy/logs/", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...authHeader },
                 body: JSON.stringify({
                     type: logType,
                     data: formData,
@@ -291,7 +295,10 @@ export default function TasksPage() {
             });
 
             // 2. Mark task as completed
-            const res = await fetch(`/api/proxy/tasks/${taskId}/complete`, { method: "PATCH" });
+            const res = await fetch(`/api/proxy/tasks/${taskId}/complete`, {
+                method: "PATCH",
+                headers: authHeader,
+            });
             if (res.ok) {
                 setTasks(prev => prev.map(t =>
                     t.id === taskId ? { ...t, status: "COMPLETED", completedDate: new Date().toISOString() } : t

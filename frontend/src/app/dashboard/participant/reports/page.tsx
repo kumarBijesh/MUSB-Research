@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { ParticipantAuth } from "@/lib/portal-auth";
 import { Download, FileText, CheckCircle2, AlertCircle, Loader2, TrendingUp, ShieldCheck } from "lucide-react";
 
 interface Report {
@@ -17,14 +17,17 @@ interface Report {
 }
 
 export default function ReportsPage() {
-    const { data: session } = useSession();
     const [report, setReport] = useState<Report | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const participantUser = ParticipantAuth.get()?.user;
 
     useEffect(() => {
         const loadReport = async () => {
             try {
-                const res = await fetch("/api/proxy/participants/me/report");
+                const token = ParticipantAuth.get()?.token;
+                const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+                const res = await fetch("/api/proxy/participants/me/report", { headers });
                 if (res.ok) {
                     const data = await res.json();
                     if (data && data.progress) {
@@ -50,7 +53,7 @@ export default function ReportsPage() {
     }
 
     const mockReport: Report = {
-        participantName: session?.user?.name || "Participant",
+        participantName: participantUser?.name || "Participant",
         reportGeneratedAt: new Date().toISOString(),
         studyTitle: "Early Detection Lung Cancer Screening",
         progress: {

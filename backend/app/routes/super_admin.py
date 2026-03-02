@@ -44,8 +44,9 @@ async def get_platform_stats(
     total_parts      = await db["participants"].count_documents({})
     active_parts     = await db["participants"].count_documents({"status": {"$in": ["ACTIVE", "ENROLLED"]}})
     open_aes         = await db["adverseEvents"].count_documents({"status": {"$ne": "Resolved"}})
-    total_leads      = await db["sponsorLeads"].count_documents({}) if await db.list_collection_names() else 0
-    audit_today      = await db["auditLogs"].count_documents({
+    collection_names = await db.list_collection_names()
+    total_leads      = await db["leads"].count_documents({}) if "leads" in collection_names else 0
+    audit_today      = await db["audit_logs"].count_documents({
         "timestamp": {"$gte": datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)}
     })
 
@@ -298,7 +299,7 @@ async def list_sponsor_leads(
         query["status"] = status
 
     leads = []
-    async for lead in db["sponsorLeads"].find(query).sort("createdAt", -1).limit(100):
+    async for lead in db["leads"].find(query).sort("createdAt", -1).limit(100):
         leads.append({
             "id":           str(lead["_id"]),
             "companyName":  lead.get("companyName", ""),
@@ -329,7 +330,7 @@ async def get_audit_logs(
         query["userId"] = user_id
 
     logs = []
-    async for log in db["auditLogs"].find(query).sort("timestamp", -1).skip(skip).limit(limit):
+    async for log in db["audit_logs"].find(query).sort("timestamp", -1).skip(skip).limit(limit):
         logs.append({
             "id":        str(log["_id"]),
             "userId":    log.get("userId", ""),
@@ -339,7 +340,7 @@ async def get_audit_logs(
             "ipAddress": log.get("ipAddress", ""),
             "timestamp": log.get("timestamp"),
         })
-    total = await db["auditLogs"].count_documents(query)
+    total = await db["audit_logs"].count_documents(query)
     return {"logs": logs, "total": total}
 
 

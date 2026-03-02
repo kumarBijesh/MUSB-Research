@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { AdminAuth } from "@/lib/portal-auth";
 import {
     Users,
     ArrowUpRight,
@@ -45,19 +46,23 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
+            const token = AdminAuth.get()?.token || "";
+            const headers: Record<string, string> = token
+                ? { Authorization: `Bearer ${token}` }
+                : {};
             try {
                 const [sRes, fRes, pRes, stRes] = await Promise.all([
-                    fetch("/api/proxy/admin/stats"),
-                    fetch("/api/proxy/admin/recruitment-funnel"),
-                    fetch("/api/proxy/participants?limit=5"),
-                    fetch("/api/proxy/studies")
+                    fetch("/api/proxy/admin/stats", { headers }),
+                    fetch("/api/proxy/admin/recruitment-funnel", { headers }),
+                    fetch("/api/proxy/participants?limit=5", { headers }),
+                    fetch("/api/proxy/studies", { headers })
                 ]);
 
                 const [sData, fData, pData, stData] = await Promise.all([
-                    sRes.json(),
-                    fRes.json(),
-                    pRes.json(),
-                    stRes.json()
+                    sRes.ok ? sRes.json() : {},
+                    fRes.ok ? fRes.json() : [],
+                    pRes.ok ? pRes.json() : [],
+                    stRes.ok ? stRes.json() : []
                 ]);
 
                 setStatsData(sData || {});
@@ -66,7 +71,6 @@ export default function AdminDashboard() {
                 setActiveStudies(Array.isArray(stData) ? stData : []);
             } catch (err) {
                 console.error("Dashboard fetch error:", err);
-                // Ensure state remains consistent even on error
                 setFunnelData([]);
                 setRecentActivity([]);
                 setActiveStudies([]);
@@ -75,8 +79,8 @@ export default function AdminDashboard() {
             }
         };
 
-        if (session) fetchData();
-    }, [session]);
+        fetchData();
+    }, []);
 
     const stats = statsData ? [
         { label: "Total Leads", value: (statsData.totalLeads || 0).toLocaleString(), change: "", icon: Users, color: "text-cyan-400" },

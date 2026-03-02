@@ -36,20 +36,6 @@ async def get_notifications(
     return notifications
 
 
-@router.patch("/{notification_id}/read")
-async def mark_notification_read(
-    notification_id: str,
-    current_user=Depends(require_coordinator_or_admin),
-    db=Depends(get_db)
-):
-    """Mark a notification as read."""
-    await db["notifications"].update_one(
-        {"_id": ObjectId(notification_id)},
-        {"$set": {"status": "READ"}}
-    )
-    return {"message": "Marked as read"}
-
-
 @router.patch("/mark-all-read")
 async def mark_all_read(
     current_user=Depends(require_coordinator_or_admin),
@@ -67,3 +53,17 @@ async def mark_all_read(
         {"$set": {"status": "READ"}}
     )
     return {"message": "All marked as read"}
+
+
+@router.patch("/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    current_user=Depends(require_coordinator_or_admin),
+    db=Depends(get_db)
+):
+    """Mark a notification as read."""
+    await db["notifications"].update_one(
+        {"_id": ObjectId(notification_id)},
+        {"$set": {"status": "READ"}}
+    )
+    return {"message": "Marked as read"}

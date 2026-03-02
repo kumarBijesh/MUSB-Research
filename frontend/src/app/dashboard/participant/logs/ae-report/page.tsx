@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ParticipantAuth } from "@/lib/portal-auth";
 
 export default function AEReportPage() {
     const [step, setStep] = useState(1);
@@ -28,9 +29,13 @@ export default function AEReportPage() {
     const handleSubmit = async () => {
         setLoading(true);
         try {
+            const token = ParticipantAuth.get()?.token;
             const res = await fetch("/api/proxy/adverse-events", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
                 body: JSON.stringify(formData)
             });
             if (res.ok) {

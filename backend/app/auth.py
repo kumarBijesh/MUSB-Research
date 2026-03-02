@@ -21,13 +21,26 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
+def get_modules_for_role(role: str) -> list:
+    role_modules = {
+        "SUPER_ADMIN": ["MAIN", "VCT"],
+        "ADMIN": ["MAIN", "VCT"],
+        "SPONSOR": ["VCT"],
+        "COORDINATOR": ["VCT"],
+        "PARTICIPANT": ["VCT"],
+    }
+    return role_modules.get(role, ["VCT"])
+
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    # python-jose accepts raw PEM bytes for RS256
+    private_key_pem = settings.PRIVATE_KEY.replace("\\n", "\n").encode()
+    return jwt.encode(to_encode, private_key_pem, algorithm="RS256")
 
 
 def decode_token(token: str) -> TokenData:
@@ -37,15 +50,31 @@ def decode_token(token: str) -> TokenData:
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        # python-jose accepts raw PEM bytes for RS256
+        public_key_pem = settings.PUBLIC_KEY.replace("\\n", "\n").encode()
+        payload = jwt.decode(token, public_key_pem, algorithms=["RS256"])
         user_id: str = payload.get("sub")
         email: str = payload.get("email")
         role: str = payload.get("role")
+        modules: list = payload.get("modules", [])
         if user_id is None:
             raise credentials_exception
-        return TokenData(user_id=user_id, email=email, role=role)
+        return TokenData(user_id=user_id, email=email, role=role, modules=modules)
     except JWTError:
         raise credentials_exception
+
+
+def require_module(module: str):
+    async def checker(
+        current_user: TokenData = Depends(get_current_user)
+    ):
+        if module not in (current_user.modules or []):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access to {module} module not allowed"
+            )
+        return current_user
+    return checker
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:

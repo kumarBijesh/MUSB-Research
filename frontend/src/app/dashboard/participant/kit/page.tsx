@@ -6,6 +6,7 @@ import {
     Loader2, Link as LinkIcon, Download, X, Play,
     CheckCircle2, Image as ImageIcon, Upload, ExternalLink
 } from "lucide-react";
+import { ParticipantAuth } from "@/lib/portal-auth";
 
 const INSTRUCTION_GUIDES = [
     {
@@ -56,7 +57,9 @@ export default function StudyKitPage() {
 
     const handleConfirmReceipt = async () => {
         setIsConfirming(true);
-        await fetch("/api/proxy/inventory/confirm-receipt", { method: "POST" }).catch(() => { });
+        const token = ParticipantAuth.get()?.token;
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+        await fetch("/api/proxy/inventory/confirm-receipt", { method: "POST", headers }).catch(() => { });
         setTimeout(() => { setIsConfirming(false); setIsConfirmed(true); }, 1200);
     };
 
@@ -78,11 +81,13 @@ export default function StudyKitPage() {
         if (!selectedPhoto) return;
         setUploading(true);
         try {
+            const token = ParticipantAuth.get()?.token;
             const fd = new FormData();
             fd.append("file", selectedPhoto);
             fd.append("category", "OTHER");
             fd.append("participantId", "self");
-            await fetch("/api/proxy/documents/", { method: "POST", body: fd }).catch(() => { });
+            const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+            await fetch("/api/proxy/documents/", { method: "POST", headers, body: fd }).catch(() => { });
             setUploadDone(true);
         } finally {
             setUploading(false);

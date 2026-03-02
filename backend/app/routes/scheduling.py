@@ -67,7 +67,11 @@ async def update_appointment(
 ):
     if not ObjectId.is_valid(appointment_id):
         raise HTTPException(status_code=400, detail="Invalid appointment ID")
-        
+
+    # Encrypt notes if being updated
+    if "notes" in updates:
+        updates["notes"] = encrypt_data(updates["notes"]) if updates["notes"] else updates["notes"]
+
     await db["appointments"].update_one(
         {"_id": ObjectId(appointment_id)},
         {"$set": updates}

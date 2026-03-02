@@ -47,6 +47,9 @@ async def send_message(
     db=Depends(get_db)
 ):
     """Send a message to another user."""
+    # Validate receiver ID format before DB call
+    if not ObjectId.is_valid(body.receiverId):
+        raise HTTPException(status_code=400, detail="Invalid receiverId format")
     # Verify receiver exists
     receiver = await db["users"].find_one({"_id": ObjectId(body.receiverId)})
     if not receiver:

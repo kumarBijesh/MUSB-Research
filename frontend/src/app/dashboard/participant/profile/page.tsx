@@ -3,10 +3,16 @@
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { UserCircle, Mail, Phone, MapPin, Globe, PenSquare, ShieldCheck, Bell, Lock, Check, X, Send, ShieldAlert, KeyRound, Loader2 } from "lucide-react";
+import { ParticipantAuth } from "@/lib/portal-auth";
 
 export default function ProfilePage() {
     const { data: session } = useSession();
     const user = session?.user;
+
+    const getAuthHeader = () => {
+        const token = ParticipantAuth.get()?.token;
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
 
     const [notifications, setNotifications] = useState({
         email: true,
@@ -31,7 +37,10 @@ export default function ProfilePage() {
 
         setWithdrawing(true);
         try {
-            const res = await fetch("/api/proxy/participants/me/withdraw", { method: "POST" });
+            const res = await fetch("/api/proxy/participants/me/withdraw", {
+                method: "POST",
+                headers: getAuthHeader(),
+            });
             if (res.ok) {
                 alert("You have successfully withdrawn from the study.");
                 window.location.href = "/dashboard/participant";
@@ -47,8 +56,8 @@ export default function ProfilePage() {
         try {
             const res = await fetch("/api/proxy/auth/verify/send", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ identifier: user.email, type: "EMAIL" })
+                headers: { "Content-Type": "application/json", ...getAuthHeader() },
+                body: JSON.stringify({ identifier: user.email, type: "EMAIL", purpose: "LOGIN" })
             });
             if (res.ok) {
                 setOtpSent(true);
@@ -74,7 +83,7 @@ export default function ProfilePage() {
         try {
             const res = await fetch("/api/proxy/auth/update-password", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...getAuthHeader() },
                 body: JSON.stringify({
                     currentPassword,
                     newPassword,

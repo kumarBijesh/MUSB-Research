@@ -12,7 +12,9 @@ from app.auth import (
     get_password_hash,
     create_access_token,
     get_current_user,
+    get_modules_for_role,
 )
+from app.config import get_settings
 from app.routes.audit import log_audit_event
 from app.utils.security import encrypt_data, decrypt_data
 from app.utils.otp import generate_otp, verify_otp
@@ -113,6 +115,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         "sub": str(user["_id"]),
         "email": user["email"],
         "role": user["role"],
+        "modules": get_modules_for_role(user["role"]),
     })
     
     # HIPAA Audit: Log successful login
@@ -218,7 +221,12 @@ async def google_upsert(request: Request, body: GoogleUpsertRequest, db=Depends(
 
     # Generate access token so NextAuth can use it for subsequent API calls
     access_token = create_access_token(
-        data={"sub": str(user["_id"]), "email": user["email"], "role": user.get("role", "PARTICIPANT")}
+        data={
+            "sub": str(user["_id"]),
+            "email": user["email"],
+            "role": user.get("role", "PARTICIPANT"),
+            "modules": get_modules_for_role(user.get("role", "PARTICIPANT")),
+        }
     )
 
     return GoogleUpsertResponse(
@@ -249,6 +257,12 @@ async def send_verification(request: Request, body: VerificationRequest, db=Depe
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Account already exists. Please sign in instead."
+            )
+    elif body.purpose == "RESET":
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No account found with that email address."
             )
 
     otp = generate_otp(body.identifier, body.purpose)
@@ -340,7 +354,7 @@ async def update_password(
 
     # Optional OTP Verification for high-security action
     if body.code:
-        if not verify_otp(user["email"], body.code):
+        if not verify_otp(user["email"], body.code, "LOGIN"):
              raise HTTPException(
                  status_code=status.HTTP_400_BAD_REQUEST, 
                  detail="Invalid or expired verification code."
@@ -403,3 +417,10 @@ async def reset_password(request: Request, body: PasswordResetRequest, db=Depend
     )
 
     return {"message": "Password reset successfully. You can now sign in."}
+
+
+@router.get("/public-key")
+async def get_public_key():
+    """Returns the RS256 public key so external services (e.g. Django SSO) can verify JWTs."""
+    settings = get_settings()
+    return {"public_key": settings.PUBLIC_KEY}

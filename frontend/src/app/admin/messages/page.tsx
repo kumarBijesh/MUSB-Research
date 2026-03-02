@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { AdminAuth } from "@/lib/portal-auth";
 import { MessageCircle, Mail, Calendar, CheckCircle, Clock } from "lucide-react";
 
 interface ContactMessage {
@@ -16,16 +16,18 @@ interface ContactMessage {
 }
 
 export default function AdminMessages() {
-    const { data: session } = useSession();
     const [messages, setMessages] = useState<ContactMessage[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchMessages = async () => {
-            if (!session) return;
+            const token = AdminAuth.get()?.token;
+            if (!token) return;
 
             try {
-                const res = await fetch("/api/proxy/messages/contact");
+                const res = await fetch("/api/proxy/messages/contact", {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
 
                 if (res.ok) {
                     const data = await res.json();
@@ -39,7 +41,7 @@ export default function AdminMessages() {
         };
 
         fetchMessages();
-    }, [session]);
+    }, []);
 
     return (
         <div className="space-y-8">

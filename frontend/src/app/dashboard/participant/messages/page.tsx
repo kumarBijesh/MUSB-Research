@@ -2,10 +2,9 @@
 
 import { MessageSquare, Bell, User, Send, ShieldCheck, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { ParticipantAuth } from "@/lib/portal-auth";
 
 export default function MessagesPage() {
-    const { data: session } = useSession();
     const [messages, setMessages] = useState<any[]>([]);
     const [profile, setProfile] = useState<any>(null);
     const [newMessage, setNewMessage] = useState("");
@@ -13,11 +12,17 @@ export default function MessagesPage() {
     const [isSending, setIsSending] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    const getAuthHeader = () => {
+        const token = ParticipantAuth.get()?.token;
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+    const userId = ParticipantAuth.get()?.user?.id || "";
+
     // Fetch Profile to get Coordinator info
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const res = await fetch("/api/proxy/participants/me/profile");
+                const res = await fetch("/api/proxy/participants/me/profile", { headers: getAuthHeader() });
                 if (res.ok) {
                     const data = await res.json();
                     setProfile(data);
@@ -32,16 +37,16 @@ export default function MessagesPage() {
     // Fetch Messages
     const fetchMessages = async () => {
         try {
-            const res = await fetch("/api/proxy/messages/");
+            const res = await fetch("/api/proxy/messages/", { headers: getAuthHeader() });
             if (res.ok) {
                 const data = await res.json();
                 // Map API messages to UI format
                 const formatted = data.map((m: any) => ({
                     id: m.id,
-                    sender: m.senderId === session?.user?.id ? "You" : "Coordinator",
+                    sender: m.senderId === userId ? "You" : "Coordinator",
                     text: m.content,
                     time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    type: m.senderId === session?.user?.id ? "sent" : "received"
+                    type: m.senderId === userId ? "sent" : "received"
                 })).reverse(); // Oldest first for chat flow
                 setMessages(formatted);
             }
@@ -53,12 +58,10 @@ export default function MessagesPage() {
     };
 
     useEffect(() => {
-        if (session?.user?.id) {
-            fetchMessages();
-            const interval = setInterval(fetchMessages, 5000); // Poll every 5s
-            return () => clearInterval(interval);
-        }
-    }, [session?.user?.id]);
+        fetchMessages();
+        const interval = setInterval(fetchMessages, 5000); // Poll every 5s
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -73,7 +76,7 @@ export default function MessagesPage() {
         try {
             const res = await fetch("/api/proxy/messages/", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...getAuthHeader() },
                 body: JSON.stringify({
                     receiverId: profile.coordinatorId,
                     content: newMessage,

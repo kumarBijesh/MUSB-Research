@@ -95,7 +95,7 @@ async def export_adverse_events(
 ):
     """CDISC AE: Adverse Events safety export."""
     rows = []
-    async for doc in db["adverse_events"].find({}).limit(5000):
+    async for doc in db["adverseEvents"].find({}).limit(5000):
         rows.append({
             "SUBJID": doc.get("participantId", ""),
             "AETERM": decrypt_data(doc.get("description", "")) or "",
@@ -149,7 +149,7 @@ async def get_export_stats(
     """Return live record counts for the Data & Exports dashboard."""
     participants   = await db["participants"].count_documents({})
     assessments    = await db["assessments"].count_documents({})
-    adverse_events = await db["adverse_events"].count_documents({})
+    adverse_events = await db["adverseEvents"].count_documents({})
     data_logs      = await db["dataLogs"].count_documents({})
     total          = participants + assessments + adverse_events + data_logs
 

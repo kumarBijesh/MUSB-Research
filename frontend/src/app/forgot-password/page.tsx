@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
             const sendRes = await fetch(`${apiUrl}/api/auth/verify/send`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ identifier: email, type: "EMAIL", purpose: "RESET_PASSWORD" }),
+                body: JSON.stringify({ identifier: email, type: "EMAIL", purpose: "RESET" }),
             });
 
             if (!sendRes.ok) {

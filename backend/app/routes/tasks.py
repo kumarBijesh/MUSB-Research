@@ -46,7 +46,9 @@ async def my_tasks(
 
     result = []
     async for doc in db["taskInstances"].find(query).sort("dueDate", 1):
-        task_def = await db["tasks"].find_one({"_id": ObjectId(doc["taskId"])})
+        task_def = None
+        if ObjectId.is_valid(doc.get("taskId", "")):
+            task_def = await db["tasks"].find_one({"_id": ObjectId(doc["taskId"])})
         result.append(_map_task(doc, task_def))
     return result
 
@@ -60,6 +62,8 @@ async def complete_task(
     db=Depends(get_db)
 ):
     """Participant: mark a task instance as completed."""
+    if not ObjectId.is_valid(instance_id):
+        raise HTTPException(status_code=400, detail="Invalid task instance ID")
     now = datetime.now(timezone.utc)
     result = await db["taskInstances"].update_one(
         {"_id": ObjectId(instance_id)},
@@ -79,6 +83,8 @@ async def generate_tasks(
     db=Depends(get_db)
 ):
     """Admin: generate task instances for a newly enrolled participant based on the study schedule."""
+    if not ObjectId.is_valid(participant_id):
+        raise HTTPException(status_code=400, detail="Invalid participant ID")
     participant = await db["participants"].find_one({"_id": ObjectId(participant_id)})
     if not participant:
         raise HTTPException(status_code=404, detail="Participant not found")

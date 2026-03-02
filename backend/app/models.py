@@ -350,9 +350,10 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    user_id: Optional[str] = None
+    user_id: str
     email: Optional[str] = None
     role: Optional[str] = None
+    modules: Optional[list] = []
 
 
 # ---------------------------------------------------------------------------

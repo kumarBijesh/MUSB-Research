@@ -118,6 +118,8 @@ async def delete_document(
     db=Depends(get_db),
 ):
     """Admin: remove a document record."""
+    if not ObjectId.is_valid(document_id):
+        raise HTTPException(status_code=400, detail="Invalid document ID")
     result = await db["documents"].delete_one({"_id": ObjectId(document_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Document not found")

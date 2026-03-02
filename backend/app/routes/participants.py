@@ -115,6 +115,8 @@ async def update_participant_status(
     db=Depends(get_db)
 ):
     """Admin: Update a participant's status (e.g., LEAD → ENROLLED)."""
+    if not ObjectId.is_valid(participant_id):
+        raise HTTPException(status_code=400, detail="Invalid participant ID")
     new_status = body.get("status")
     allowed = ["LEAD", "SCREENED", "CONSENTED", "ENROLLED", "ACTIVE", "COMPLETED", "WITHDRAWN"]
     if new_status not in allowed:
@@ -304,6 +306,8 @@ async def enroll_participant(
     """
     Finalize enrollment via participant ID.
     """
+    if not ObjectId.is_valid(participant_id):
+        raise HTTPException(status_code=400, detail="Invalid participant ID")
     p = await db["participants"].find_one({"_id": ObjectId(participant_id)})
     if not p:
         raise HTTPException(status_code=404, detail="Participant not found")

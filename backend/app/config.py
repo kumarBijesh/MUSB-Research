@@ -17,14 +17,19 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = "CHANGE_THIS_IN_PRODUCTION_VERY_LONG_SECRET_KEY"
     ENCRYPTION_KEY: str = "thR8M8l1QfjLd9OYFPzRI_ioWtkaBkDPCmpcRsAAEAM="
-    ALGORITHM: str = "HS256"
+    ALGORITHM: str = "RS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    # RS256 key pair (stored as PEM with \\n-escaped newlines in .env)
+    PRIVATE_KEY: str = ""
+    PUBLIC_KEY: str = ""
 
     # CORS
     ALLOWED_ORIGINS: Any = [
+        "https://musbresearchwebsite.vercel.app",
+        "https://musb-research-f3on.vercel.app",
         "http://localhost:3000",
-        "http://127.0.0.1:3000",
+        "http://localhost:3001",
     ]
 
     @field_validator("ALLOWED_ORIGINS", mode="before")

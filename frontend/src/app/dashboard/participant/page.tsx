@@ -157,17 +157,22 @@ export default function ParticipantDashboard() {
         );
     }
 
-    const handleTaskClick = async (id: number) => {
-        setCompletingId(id);
+    const handleTaskClick = async (id: number | string) => {
+        setCompletingId(id as number);
+        const token = participantSession?.token;
         try {
-            const res = await fetch(`/api/proxy/tasks/${id}/complete`, { method: "PATCH" });
-            if (res.ok) {
-                setTaskStates(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t));
-            } else {
-                setTaskStates(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t));
+            const res = await fetch(`/api/proxy/tasks/${id}/complete`, {
+                method: "PATCH",
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            // Mark complete regardless of result (optimistic UI)
+            setTaskStates(prev => prev.map(t => String(t.id) === String(id) ? { ...t, status: 'completed' } : t));
+            if (!res.ok) {
+                console.error("Task complete error:", res.status);
             }
         } catch (err) {
-            setTaskStates(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t));
+            console.error("Task complete failed:", err);
+            setTaskStates(prev => prev.map(t => String(t.id) === String(id) ? { ...t, status: 'completed' } : t));
         } finally {
             setCompletingId(null);
         }
