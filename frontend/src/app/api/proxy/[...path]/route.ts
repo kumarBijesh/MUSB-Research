@@ -53,12 +53,12 @@ async function handleProxy(req: NextRequest, paramsPromise: Promise<{ path: stri
     }
 
     try {
-        const body = req.method !== "GET" && req.method !== "DELETE" ? await req.blob() : undefined;
-
         const response = await fetch(url.toString(), {
             method: req.method,
             headers: headers,
-            body: body,
+            body: req.method !== "GET" && req.method !== "DELETE" ? req.body : undefined,
+            // @ts-ignore - duplex is required for streaming request bodies
+            duplex: "half",
         });
 
         const data = await response.json().catch(() => ({}));
