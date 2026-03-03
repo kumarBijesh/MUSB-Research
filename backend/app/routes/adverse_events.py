@@ -2,11 +2,15 @@ from datetime import datetime, timezone
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from bson import ObjectId
+import logging
 
 from app.database import get_db
 from app.models import AdverseEventCreate, AdverseEventOut
 from app.auth import get_current_user, require_admin
 from app.utils.security import encrypt_data, decrypt_data
+from app.utils.email import send_email_notification
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/adverse-events", tags=["Safety / Adverse Events"])
 
@@ -52,9 +56,53 @@ async def report_ae(
 
     result = await db["adverseEvents"].insert_one(doc)
 
-    # TODO: If severity == LIFE_THREATENING, trigger notification to coordinator
+    # Life-threatening events: Notify coordinator immediately
     if body.severity == "LIFE_THREATENING":
-        print(f"🚨 CRITICAL AE reported by participant {str(participant['_id'])} — escalating!")
+        try:
+            # Get study info and coordinator
+            study_id = participant.get("studyId")
+            if study_id:
+                # Try to find study by ID or slug
+                if ObjectId.is_valid(study_id):
+                    study = await db["studies"].find_one({"_id": ObjectId(study_id)})
+                else:
+                    study = await db["studies"].find_one({"slug": study_id})
+
+                if study:
+                    coordinator_id = study.get("coordinatorId")
+                    if coordinator_id and ObjectId.is_valid(coordinator_id):
+                        coordinator = await db["users"].find_one({"_id": ObjectId(coordinator_id)})
+                        if coordinator and coordinator.get("email"):
+                            # Send emergency notification to coordinator
+                            subject = "🚨 CRITICAL: Life-Threatening Adverse Event Reported"
+                            email_body = f"""
+                            URGENT SAFETY ALERT
+
+                            A LIFE-THREATENING adverse event has been reported in the {study.get('title', 'Unknown')} study.
+
+                            Participant ID: {str(participant['_id'])}
+                            Severity: LIFE-THREATENING
+                            Reported At: {now.isoformat()}
+
+                            EVENT DESCRIPTION:
+                            [Details have been logged in the system]
+
+                            ACTION REQUIRED:
+                            Log in immediately to review the full report and take necessary action.
+
+                            This is an automated urgent notification. Do not reply to this email.
+
+                            - MUSB Research Safety System
+                            """
+                            await send_email_notification(
+                                coordinator.get("email"),
+                                subject,
+                                email_body
+                            )
+                            logger.warning(f"Life-threatening AE alert sent to coordinator for participant {str(participant['_id'])}")
+        except Exception as e:
+            logger.error(f"Failed to send life-threatening AE notification: {str(e)}", exc_info=True)
+            # Don't fail the API request if notification fails, but log the error
 
     created = await db["adverseEvents"].find_one({"_id": result.inserted_id})
     return _map_ae(created)
