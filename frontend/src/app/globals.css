@@ -12,8 +12,8 @@
     --color-foreground: #f8fafc;
 
     --font-sans: "Inter", "system-ui", "sans-serif";
-    --font-size-xs: 13px;
-    --font-size-sm: 14px;
+    --font-size-xs: 14px;
+    --font-size-sm: 15px;
 
     --animate-fade-in-up: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     --animate-float: float 4s ease-in-out infinite;
@@ -70,7 +70,9 @@
 
     body {
         @apply bg-background text-foreground;
-        font-size: 13px;
+        /* bump base font-size to match deployed site rhythm */
+        font-size: 14px;
+        color: #cbd5e1; /* slightly muted off-white matching site tone */
     }
 }
 
