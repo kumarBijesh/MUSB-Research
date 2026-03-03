@@ -86,18 +86,14 @@ export default function Navbar() {
         <>
             <motion.nav
                 initial={{ y: 0 }}
-                animate={{ y: isVisible ? 0 : -100 }}
+                animate={{ y: 0 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                className={`fixed top-0 left-0 right-0 z-[9999] transition-all duration-300 ${isScrolled
-                    ? "bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-200 py-2 md:py-2.5"
-                    : "bg-transparent py-3 md:py-4"
-                    }`}
+                className="fixed top-0 left-0 right-0 z-[9999] transition-all duration-300 bg-white shadow-sm border-b border-slate-200 py-3 md:py-4"
             >
                 <div className="max-w-[1400px] mx-auto px-4 md:px-6 flex items-center justify-between">
 
                     {/* Logo Section */}
-                    <Link href="/" className={`flex items-center gap-3 group relative transition-all ${!isScrolled ? "bg-white px-2 py-1 rounded-lg shadow-sm border border-white/10" : ""
-                        }`}>
+                    <Link href="/" className="flex items-center gap-3 group relative transition-all">
                         <Image
                             src="/musb research.png"
                             alt="MUSB Research Logo"
@@ -125,10 +121,7 @@ export default function Navbar() {
                             <Link
                                 key={link.name}
                                 href={link.href}
-                                className={`text-[13px] lg:text-[13px] font-bold uppercase tracking-widest transition-colors ${isScrolled
-                                    ? "text-slate-700 hover:text-cyan-600"
-                                    : "text-slate-300 hover:text-white"
-                                    }`}
+                                className="text-[13px] lg:text-[13px] font-bold uppercase tracking-widest transition-colors text-slate-700 hover:text-cyan-600"
                             >
                                 {link.name}
                             </Link>
@@ -140,8 +133,8 @@ export default function Navbar() {
                         {status === "authenticated" ? (
                             <div className="flex items-center gap-4">
                                 {/* User Profile Info */}
-                                <div className="flex items-center gap-3 pr-4 border-r border-slate-200/20">
-                                    <div className={`flex flex-col items-end ${isScrolled ? "text-slate-900" : "text-white"}`}>
+                                <div className="flex items-center gap-3 pr-4 border-r border-slate-200">
+                                    <div className="flex flex-col items-end text-slate-900">
                                         <span className="text-[13px] uppercase tracking-tighter font-black opacity-50 leading-none mb-1">Authenticated</span>
                                         <span className="text-[13px] font-bold tracking-tight leading-none">{user?.name || "User"}</span>
                                     </div>
@@ -168,10 +161,7 @@ export default function Navbar() {
                                         AdminAuth.clear();
                                         signOut({ callbackUrl: "/" });
                                     }}
-                                    className={`p-2.5 rounded-full transition-all border ${isScrolled
-                                        ? "border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-500 hover:bg-red-50"
-                                        : "border-white/10 text-white/70 hover:text-red-400 hover:border-red-400 hover:bg-red-500/10"
-                                        }`}
+                                    className="p-2.5 rounded-full transition-all border border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-500 hover:bg-red-50"
                                     title="Sign Out"
                                 >
                                     <LogOut size={16} />
@@ -180,10 +170,7 @@ export default function Navbar() {
                         ) : (
                             <Link
                                 href="/signin"
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[13px] font-bold uppercase tracking-widest border transition-all ${isScrolled
-                                    ? "border-slate-300 text-slate-700 hover:border-slate-900 hover:text-slate-900 hover:bg-slate-50"
-                                    : "border-white/20 text-white hover:bg-white/10 hover:border-white"
-                                    }`}
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-full text-[13px] font-bold uppercase tracking-widest border transition-all border-slate-300 text-slate-700 hover:border-slate-900 hover:text-slate-900 hover:bg-slate-50"
                             >
                                 <User size={14} />
                                 Sign In
@@ -194,7 +181,7 @@ export default function Navbar() {
                     {/* Mobile Toggle */}
                     <button
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className={`md:hidden p-2 -mr-2 transition-colors ${isScrolled ? "text-slate-900" : "text-white"}`}
+                        className="md:hidden p-2 -mr-2 transition-colors text-slate-900"
                         aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
                     >
                         {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}

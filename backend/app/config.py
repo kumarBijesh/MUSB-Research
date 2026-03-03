@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # Security
     SECRET_KEY: str = "CHANGE_THIS_IN_PRODUCTION_VERY_LONG_SECRET_KEY"
-    ENCRYPTION_KEY: str = "thR8M8l1QfjLd9OYFPzRI_ioWtkaBkDPCmpcRsAAEAM="
+    ENCRYPTION_KEY: str = ""  # MUST be set via environment variable
     ALGORITHM: str = "RS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30

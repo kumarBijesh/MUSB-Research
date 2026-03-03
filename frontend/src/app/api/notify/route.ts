@@ -10,20 +10,32 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Email is required" }, { status: 400 });
         }
 
-        // Configure standard nodemailer transporter using ethereal or user-provided SMTP
+        // SMTP configuration - must be set in environment
+        const smtpHost = process.env.SMTP_HOST;
+        const smtpEmail = process.env.SMTP_EMAIL;
+        const smtpPassword = process.env.SMTP_PASSWORD;
+
+        if (!smtpHost || !smtpEmail || !smtpPassword) {
+            console.error("Email service not configured. SMTP credentials missing in environment variables.");
+            return NextResponse.json({
+                error: "Email service temporarily unavailable"
+            }, { status: 503 });
+        }
+
+        // Configure nodemailer transporter with environment credentials
         const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || "smtp.gmail.com",
+            host: smtpHost,
             port: parseInt(process.env.SMTP_PORT || "587"),
-            secure: process.env.SMTP_SECURE === "true", // Use true for 465, false for other ports
+            secure: process.env.SMTP_SECURE === "true",
             auth: {
-                user: process.env.SMTP_EMAIL || "test@example.com",     // Must be defined in .env
-                pass: process.env.SMTP_PASSWORD || "password123",       // Must be defined in .env
+                user: smtpEmail,
+                pass: smtpPassword,
             },
         });
 
         // Skip sending if we haven't configured a real email to avoid crashing
         let mailOptions = {
-            from: `"MusB Research" <${process.env.SMTP_EMAIL || "noreply@musbresearch.com"}>`,
+            from: `"MusB Research" <${smtpEmail}>`,
             to: email,
             subject: "",
             html: "",

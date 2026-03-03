@@ -107,7 +107,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     if not user or not verify_password(form_data.password, user.get("passwordHash", "")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -272,8 +272,7 @@ async def send_verification(request: Request, body: VerificationRequest, db=Depe
         subject = f"Your MUSB {body.purpose.title()} Verification Code"
         email_body = f"Hello,\n\nYour 6-digit verification code for {body.purpose.lower()} is: {otp}\n\nPlease enter this code to securely proceed. This code will expire in 10 minutes.\n\nBest,\nThe MUSB Research Team"
         await send_email_notification(body.identifier, subject, email_body)
-    else:
-        print(f"DEBUG: Sending OTP {otp} to {body.identifier} via {channel} for {body.purpose}")
+    # Phone SMS sending can be implemented here when SMS provider is configured
     
     await log_audit_event(
         db=db,

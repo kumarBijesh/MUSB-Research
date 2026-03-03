@@ -165,11 +165,46 @@ function SignInContent() {
                 const tokenData = await res.json();
                 const role: string = tokenData.role?.toUpperCase() || "";
 
-                // Strict portal gating — only PARTICIPANT can use this portal
+                // Universal login handler
                 if (role !== "PARTICIPANT") {
-                    setError("This portal is for participants only. Please use the Admin Console.");
-                    setLoading(false);
-                    return;
+                    // Instead of blocking them, we will log them in and redirect to their respective portal
+                    if (role === "SUPER_ADMIN") {
+                        const { SuperAdminAuth } = await import("@/lib/portal-auth");
+                        SuperAdminAuth.save(tokenData.access_token, {
+                            id: tokenData.sub || "",
+                            name: email,
+                            email: email,
+                            role
+                        });
+                        await signIn("credentials", { email, password, allowedRole: "SUPER_ADMIN", redirect: false });
+                        router.push("/super-admin");
+                        setLoading(false);
+                        return;
+                    } else if (["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"].includes(role)) {
+                        const { AdminAuth } = await import("@/lib/portal-auth");
+                        AdminAuth.save(tokenData.access_token, {
+                            id: tokenData.sub || "",
+                            name: email,
+                            email: email,
+                            role
+                        });
+                        await signIn("credentials", { email, password, allowedRole: "ADMIN,COORDINATOR,PI,DATA_MANAGER", redirect: false });
+                        router.push("/admin");
+                        setLoading(false);
+                        return;
+                    } else if (role === "SPONSOR") {
+                        const { AdminAuth } = await import("@/lib/portal-auth");
+                        AdminAuth.save(tokenData.access_token, {
+                            id: tokenData.sub || "",
+                            name: email,
+                            email: email,
+                            role
+                        });
+                        await signIn("credentials", { email, password, allowedRole: "SPONSOR", redirect: false });
+                        router.push("/sponsor/dashboard");
+                        setLoading(false);
+                        return;
+                    }
                 }
 
                 // Password is correct, now send OTP
