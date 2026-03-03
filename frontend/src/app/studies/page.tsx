@@ -1,9 +1,8 @@
 "use client";
 
-import { filters } from "@/lib/data";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Globe, ShieldCheck, Clock, Filter, Star, Quote, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Globe, ShieldCheck, Clock, Star, Quote, Loader2, CheckCircle2 } from "lucide-react";
 
 const testimonials = [
     {
@@ -29,15 +28,6 @@ const testimonials = [
 export default function StudiesDirectory() {
     const [studies, setStudies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeFilters, setActiveFilters] = useState({
-        condition: "",
-        location: "",
-        locationType: "",
-        country: "",
-        timeCommitment: "",
-        age: ""
-    });
-    const [showFilters, setShowFilters] = useState(false);
     const [perfMode, setPerfMode] = useState("high");
 
     useEffect(() => {
@@ -67,17 +57,8 @@ export default function StudiesDirectory() {
     }, []);
 
 
-    const filteredStudies = Array.isArray(studies) ? studies.filter(study => {
-        if (activeFilters.condition && study.condition !== activeFilters.condition) return false;
-        if (activeFilters.location && !study.location?.includes(activeFilters.location)) return false;
-        if (activeFilters.locationType && study.locationType !== activeFilters.locationType) return false;
-        if (activeFilters.country && study.country !== activeFilters.country) return false;
-        if (activeFilters.timeCommitment && study.timeCommitment !== activeFilters.timeCommitment) return false;
-        if (activeFilters.age && study.age !== activeFilters.age) return false;
-        return true;
-    }) : [];
-
-    const clearFilters = () => setActiveFilters({ condition: "", location: "", locationType: "", country: "", timeCommitment: "", age: "" });
+    // without filters we just show whatever studies were fetched
+    const filteredStudies = Array.isArray(studies) ? studies : []; // alias for clarity
 
     return (
         <div className="min-h-screen bg-transparent pt-24 pb-20 px-6">
@@ -101,116 +82,8 @@ export default function StudiesDirectory() {
                     </div>
                 </div>
 
-                {/* Filters & Content Layout */}
-                <div className="flex flex-col lg:flex-row gap-8">
-
-                    {/* Filter Sidebar */}
-                    <div className={`lg:w-64 flex-shrink-0 ${showFilters ? 'block' : 'hidden lg:block'}`}>
-                        <div className="glass p-6 rounded-2xl sticky top-24">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-white font-bold uppercase tracking-widest text-sm">Filters</h3>
-                                <button onClick={clearFilters} className="text-[13px] text-cyan-400 hover:text-white transition-colors">Reset</button>
-                            </div>
-
-                            <div className="space-y-8">
-                                <div>
-                                    <h4 className="text-slate-500 text-[13px] font-bold uppercase mb-3">Condition</h4>
-                                    <select
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-cyan-500 outline-none transition-colors cursor-pointer appearance-none"
-                                        value={activeFilters.condition}
-                                        onChange={(e) => setActiveFilters(prev => ({ ...prev, condition: e.target.value }))}
-                                    >
-                                        <option value="">All Conditions</option>
-                                        {filters.conditions.map(c => (
-                                            <option key={c} value={c}>{c}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <h4 className="text-slate-500 text-[13px] font-bold uppercase mb-3">Time Commitment</h4>
-                                    <select
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-cyan-500 outline-none transition-colors cursor-pointer appearance-none"
-                                        value={activeFilters.timeCommitment}
-                                        onChange={(e) => setActiveFilters(prev => ({ ...prev, timeCommitment: e.target.value }))}
-                                    >
-                                        <option value="">All Time Commitments</option>
-                                        {filters.timeCommitment.map(t => (
-                                            <option key={t} value={t}>{t}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <h4 className="text-slate-500 text-[13px] font-bold uppercase mb-3">Country</h4>
-                                    <input
-                                        list="country-options"
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-cyan-500 outline-none transition-colors placeholder:text-slate-500"
-                                        placeholder="Type to search country..."
-                                        value={activeFilters.country}
-                                        onChange={(e) => setActiveFilters(prev => ({ ...prev, country: e.target.value }))}
-                                    />
-                                    <datalist id="country-options">
-                                        {filters.countries.map(c => (
-                                            <option key={c} value={c} />
-                                        ))}
-                                    </datalist>
-                                </div>
-
-                                <div>
-                                    <h4 className="text-slate-500 text-[13px] font-bold uppercase mb-3">Location Type</h4>
-                                    <select
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-cyan-500 outline-none transition-colors cursor-pointer appearance-none"
-                                        value={activeFilters.locationType}
-                                        onChange={(e) => setActiveFilters(prev => ({ ...prev, locationType: e.target.value }))}
-                                    >
-                                        <option value="">All Types</option>
-                                        <option value="Remote">Remote</option>
-                                        <option value="Hybrid">Hybrid</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <h4 className="text-slate-500 text-[13px] font-bold uppercase mb-3">Place Name</h4>
-                                    <select
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-cyan-500 outline-none transition-colors cursor-pointer appearance-none"
-                                        value={activeFilters.location}
-                                        onChange={(e) => setActiveFilters(prev => ({ ...prev, location: e.target.value }))}
-                                    >
-                                        <option value="">All Locations</option>
-                                        {filters.locations.map(l => (
-                                            <option key={l} value={l}>{l}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <h4 className="text-slate-500 text-[13px] font-bold uppercase mb-3">Age Group</h4>
-                                    <select
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-cyan-500 outline-none transition-colors cursor-pointer appearance-none"
-                                        value={activeFilters.age}
-                                        onChange={(e) => setActiveFilters(prev => ({ ...prev, age: e.target.value }))}
-                                    >
-                                        <option value="">All Ages</option>
-                                        {filters.ageRanges.map(a => (
-                                            <option key={a} value={a}>{a}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Mobile Filter Toggle */}
-                    <div className="lg:hidden mb-4">
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="w-full py-3 bg-slate-900 border border-white/10 rounded-xl text-white font-bold flex items-center justify-center gap-2"
-                        >
-                            <Filter size={16} /> {showFilters ? 'Hide Filters' : 'Show Filters'}
-                        </button>
-                    </div>
-
+                {/* Content Layout */}
+                <div>
                     {/* Cards Grid */}
                     <div className="flex-1">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -274,12 +147,7 @@ export default function StudiesDirectory() {
                                 </div>
                             ))}
                         </div>
-                        {filteredStudies.length === 0 && (
-                            <div className="text-center py-20 text-slate-500">
-                                <p className="text-lg">No studies found matching your criteria.</p>
-                                <button onClick={clearFilters} className="text-cyan-400 font-bold mt-4 hover:underline">Clear all filters</button>
-                            </div>
-                        )}
+
                     </div>
 
                 </div>

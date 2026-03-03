@@ -80,10 +80,31 @@ export default function Footer() {
                         </div>
                     </div>
 
-                    {/* MIDDLE COLUMN: Links & Socials */}
+                    {/* MIDDLE COLUMN: Navigation & Socials */}
                     <div className="lg:col-span-4 flex flex-col justify-between">
-                        {/* Removed Solutions and MusB Group sections */}
+                        {/* two link groups */}
+                        <div className="grid grid-cols-2 gap-8 mb-10">
+                            <div>
+                                <h4 className="text-white font-black text-[13px] uppercase tracking-widest mb-6">Solutions</h4>
+                                <ul className="space-y-4">
+                                    <li><Link href="/business" className="text-slate-400 hover:text-white text-sm transition-colors">For Businesses</Link></li>
+                                    <li><Link href="/patients" className="text-slate-400 hover:text-white text-sm transition-colors">For Patients</Link></li>
+                                    <li><Link href="/innovation" className="text-slate-400 hover:text-white text-sm transition-colors">Innovation</Link></li>
+                                    <li><Link href="/studies" className="text-slate-400 hover:text-white text-sm transition-colors">Join a Study!</Link></li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 className="text-white font-black text-[13px] uppercase tracking-widest mb-6">MUSB Group</h4>
+                                <ul className="space-y-4">
+                                    <li><Link href="/about" className="text-slate-400 hover:text-white text-sm transition-colors">About Us</Link></li>
+                                    <li><Link href="/news" className="text-slate-400 hover:text-white text-sm transition-colors">News & Events</Link></li>
+                                    <li><Link href="/careers" className="text-slate-400 hover:text-white text-sm transition-colors">Careers</Link></li>
+                                    <li><Link href="/contact" className="text-slate-400 hover:text-white text-sm transition-colors">Contact Us</Link></li>
+                                </ul>
+                            </div>
+                        </div>
 
+                        {/* social icons */}
                         <div>
                             <h4 className="text-white font-black text-[13px] uppercase tracking-widest mb-6">Join The Community</h4>
                             <div className="flex gap-3">
@@ -164,22 +185,30 @@ export default function Footer() {
 
                 </div>
 
-                <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div className="flex flex-wrap justify-center md:justify-start gap-6">
-                        <Link href="/terms" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Terms of Service</Link>
-                        <Link href="/privacy" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Privacy Policy</Link>
-                        <Link href="/cookies" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Cookie Settings</Link>
+                <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-start gap-6">
+                    {/* left side: copyright & disclaimer */}
+                    <div className="flex flex-col items-center md:items-start gap-2">
+                        <p className="text-slate-600 text-[13px] font-bold uppercase tracking-widest">
+                            &copy; 2026 MusB Research. All rights reserved.
+                        </p>
+                        <p className="text-slate-500 text-[11px] max-w-md text-center md:text-left">
+                            Information can change without notice. MusB™ Research – Integrated Research & Clinical Solutions.
+                        </p>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">HIPAA Compliant</div>
-                        <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">GDPR Ready</div>
-                        <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">21 CFR Part 11</div>
+                    {/* right side: compliance badges + links */}
+                    <div className="flex flex-col md:flex-row items-center gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">HIPAA Compliant</div>
+                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">GDPR Ready</div>
+                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">21 CFR Part 11</div>
+                        </div>
+                        <div className="flex flex-wrap justify-center md:justify-end gap-6">
+                            <Link href="/privacy" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Privacy Policy</Link>
+                            <Link href="/terms" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Terms of Use</Link>
+                            <Link href="/cookies" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Cookie Settings</Link>
+                        </div>
                     </div>
-
-                    <p className="text-slate-600 text-[13px] font-bold uppercase tracking-widest">
-                        &copy; 2026 MusB Research. All rights reserved.
-                    </p>
                 </div>
             </div>
         </footer>

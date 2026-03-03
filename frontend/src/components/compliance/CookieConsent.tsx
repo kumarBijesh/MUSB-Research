@@ -7,24 +7,35 @@ import { Shield, Check, X, ChevronRight } from "lucide-react";
 export default function CookieConsent() {
     const [isVisible, setIsVisible] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
+    const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
 
     useEffect(() => {
-        // Check if user has already consented
+        // Hide banner if cookies were accepted or partially accepted; show again on decline
         const consent = localStorage.getItem("musb-privacy-consent");
-        if (!consent) {
-            // Add a small delay so it doesn't clash with the splash screen
-            const timer = setTimeout(() => setIsVisible(true), 2500);
-            return () => clearTimeout(timer);
+        if (consent === "accepted" || consent === "partial") {
+            // if partial, make sure toggle reflects that the user did not agree to analytics
+            if (consent === "partial") setAnalyticsEnabled(false);
+            return;
         }
+
+        // Add a small delay so it doesn't clash with the splash screen
+        const timer = setTimeout(() => setIsVisible(true), 2500);
+        return () => clearTimeout(timer);
     }, []);
 
     const handleAccept = () => {
-        localStorage.setItem("musb-privacy-consent", "accepted");
+        if (analyticsEnabled) {
+            localStorage.setItem("musb-privacy-consent", "accepted");
+        } else {
+            // no analytics = partial consent
+            localStorage.setItem("musb-privacy-consent", "partial");
+        }
         setIsVisible(false);
     };
 
     const handleDecline = () => {
-        localStorage.setItem("musb-privacy-consent", "declined");
+        // drop any stored value so banner reappears on next visit
+        localStorage.removeItem("musb-privacy-consent");
         setIsVisible(false);
     };
 
@@ -64,9 +75,21 @@ export default function CookieConsent() {
                                         className="mb-4 overflow-hidden"
                                     >
                                         <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-400 space-y-2">
-                                            <p>• <strong>Strictly Necessary:</strong> Required for secure login and platform functionality (HIPAA compliance features).</p>
-                                            <p>• <strong>Analytics:</strong> Helps us understand platform usage to improve our clinical trial matching system.</p>
+                                            <div className="flex items-center gap-2">
+                                                <input type="checkbox" checked disabled className="accent-cyan-400" />
+                                                <span><strong>Strictly Necessary:</strong> Required for secure login and platform functionality (HIPAA compliance features).</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={analyticsEnabled}
+                                                    onChange={e => setAnalyticsEnabled(e.target.checked)}
+                                                    className="accent-cyan-400"
+                                                />
+                                                <span><strong>Analytics:</strong> Helps us understand platform usage to improve our clinical trial matching system.</span>
+                                            </div>
                                             <p>By clicking &quot;Accept&quot;, you agree to our <a href="#" className="text-cyan-400 hover:underline">Privacy Policy</a> and <a href="#" className="text-cyan-400 hover:underline">Terms of Service</a>.</p>
+                                            <p className="text-xs text-slate-500 italic">You can decline or change your choices later via the cookie settings link in the footer.</p>
                                         </div>
                                     </motion.div>
                                 )}
