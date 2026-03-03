@@ -93,11 +93,24 @@ async def get_participant(
 ):
     if not ObjectId.is_valid(participant_id):
         raise HTTPException(status_code=400, detail="Invalid participant ID")
-        
+
     p = await db["participants"].find_one({"_id": ObjectId(participant_id)})
     if not p:
         raise HTTPException(status_code=404, detail="Participant not found")
-        
+
+    # HIPAA: Verify coordinator can only access participants from their assigned study
+    if current_user.role == "COORDINATOR":
+        study_id = p.get("studyId")
+        if not study_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Check if coordinator is assigned to this study
+        coordinator_user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+        assigned_studies = coordinator_user.get("assignedStudies", [])
+
+        if study_id not in assigned_studies:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     user_id_str = p.get("userId")
     user = None
     if user_id_str and ObjectId.is_valid(user_id_str):

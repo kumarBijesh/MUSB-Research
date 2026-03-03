@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Optional
+from app.utils.rate_limit import rate_limit_check
 from bson import ObjectId
 
 from app.database import get_db
@@ -26,6 +27,9 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register(request: Request, user_in: UserCreate, db=Depends(get_db)):
     """Register a new participant account."""
+    # Rate limiting: max 3 registration attempts per hour
+    await rate_limit_check(request, "/api/auth/register")
+
     # Check duplicate email
     existing = await db["users"].find_one({"email": user_in.email})
     if existing:
@@ -103,6 +107,9 @@ async def register(request: Request, user_in: UserCreate, db=Depends(get_db)):
 @router.post("/login", response_model=Token)
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
     """Login with email and password, returns a JWT access token."""
+    # Rate limiting: max 5 attempts per 15 minutes
+    await rate_limit_check(request, "/api/auth/login")
+
     user = await db["users"].find_one({"email": form_data.username})
     if not user or not verify_password(form_data.password, user.get("passwordHash", "")):
         raise HTTPException(
@@ -242,10 +249,12 @@ async def google_upsert(request: Request, body: GoogleUpsertRequest, db=Depends(
 @router.post("/verify/send")
 async def send_verification(request: Request, body: VerificationRequest, db=Depends(get_db)):
     """Send a verification code via Email or Phone."""
-    
+    # Rate limiting: max 5 OTP sends per hour
+    await rate_limit_check(request, "/api/auth/verify/send")
+
     # Check user existence based on action purpose
     user = await db["users"].find_one({"email": body.identifier})
-    
+
     if body.purpose == "LOGIN":
         if not user:
             raise HTTPException(
@@ -289,8 +298,11 @@ async def send_verification(request: Request, body: VerificationRequest, db=Depe
 @router.post("/verify/check")
 async def check_verification(request: Request, body: VerificationCheck, db=Depends(get_db)):
     """Check a verification code and update user/participant status."""
+    # Rate limiting: max 10 OTP checks per 15 minutes (allow some failed attempts)
+    await rate_limit_check(request, "/api/auth/verify/check")
+
     is_valid = verify_otp(body.identifier, body.code, body.purpose)
-    
+
     if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 

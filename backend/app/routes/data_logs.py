@@ -135,10 +135,34 @@ async def list_all_logs(
 async def participant_logs(
     participant_id: str,
     type: Optional[str] = Query(None),
-    current_user=Depends(get_current_user),   # require_admin removed to allow data managers too
+    current_user=Depends(get_current_user),
     db=Depends(get_db),
 ):
     """Admin/Coordinator: view all logs for a specific participant."""
+    from bson import ObjectId
+
+    # HIPAA: Verify coordinator can only access logs for participants from their assigned study
+    if current_user.role == "COORDINATOR":
+        # Find the participant first
+        if ObjectId.is_valid(participant_id):
+            participant = await db["participants"].find_one({"_id": ObjectId(participant_id)})
+        else:
+            participant = await db["participants"].find_one({"_id": participant_id})
+
+        if not participant:
+            raise HTTPException(status_code=404, detail="Participant not found")
+
+        study_id = participant.get("studyId")
+        if not study_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Check if coordinator is assigned to this study
+        coordinator_user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+        assigned_studies = coordinator_user.get("assignedStudies", [])
+
+        if study_id not in assigned_studies:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     query: dict = {"participantId": participant_id}
     if type:
         query["type"] = type
