@@ -82,7 +82,7 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
             const participatedRecently = answers.recentTrial === true;
             const hasConditions = (answers.conditions || []).length > 0;
 
-            if (age < 18 || participatedRecently) {
+            if (isNaN(age) || age < 18 || participatedRecently) {
                 setEligibilityStatus("ineligible");
             } else if (hasConditions) {
                 // If they have conditions, they are "maybe" eligible (need call)
@@ -132,6 +132,23 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
         router.push(`/studies/${slug}/consent?${searchParams.toString()}`);
     };
 
+    const canProceed = () => {
+        if (currentStep === 1) {
+            return !!answers.age && !!answers.location && answers.recentTrial !== undefined;
+        }
+        if (currentStep === 2) {
+            return (answers.conditions || []).length > 0;
+        }
+        if (currentStep === 3) {
+            return !!answers.medications;
+        }
+        if (currentStep === 4) {
+            const hasEmail = status === "authenticated" ? true : !!answers.email;
+            return hasEmail && !!answers.phone && !!answers.callTime && !!answers.contactConsent;
+        }
+        return true;
+    };
+
     const renderStepContent = () => {
         switch (currentStep) {
             case 1:
@@ -164,12 +181,14 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                                 <p className="text-[13px] text-slate-500 mb-3">Have you participated in any other clinical trial in the last 30 days?</p>
                                 <div className="flex gap-4">
                                     <button
+                                        type="button"
                                         onClick={() => handleAnswer("recentTrial", true)}
                                         className={`flex-1 p-3 rounded-lg border ${answers.recentTrial === true ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
                                     >
                                         Yes
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => handleAnswer("recentTrial", false)}
                                         className={`flex-1 p-3 rounded-lg border ${answers.recentTrial === false ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
                                     >
@@ -438,21 +457,23 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
 
                     <div className="flex justify-between mt-12 pt-8 border-t border-white/5">
                         <button
+                            type="button"
                             onClick={prevStep}
                             disabled={currentStep === 1}
                             className={`flex items-center gap-2 text-sm font-bold uppercase tracking-widest transition-colors ${currentStep === 1 ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-white'}`}
                         >
-                            <ChevronLeft size={16} /> Back
+                            <ChevronLeft size={16} /> BACK
                         </button>
                         <button
+                            type="button"
                             onClick={nextStep}
-                            disabled={currentStep === 4 && !answers.contactConsent}
-                            className={`flex items-center gap-2 px-8 py-3 font-bold uppercase tracking-widest rounded-xl transition-all ${currentStep === 4 && !answers.contactConsent
+                            disabled={!canProceed()}
+                            className={`flex items-center gap-2 px-8 py-3 font-bold uppercase tracking-widest rounded-xl transition-all ${!canProceed()
                                 ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                                 : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/20'
                                 }`}
                         >
-                            {currentStep === 4 ? 'Check Result' : 'Next'} <ChevronRight size={16} />
+                            {currentStep === 4 ? 'CHECK RESULT' : 'NEXT'} <ChevronRight size={16} />
                         </button>
                     </div>
                 </div>
