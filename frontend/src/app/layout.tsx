@@ -20,9 +20,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
     metadataBase: new URL("https://musbresearch.com"),
     title: {
-        // concise default title for the browser tab
-        default: "MusB Research",
-        template: "%s | MusB Research",
+        default: "MusB™ Research | Virtual Clinical Trial Ecosystem",
+        template: "%s | MusB™ Research",
     },
     description: "Connect with groundbreaking medical research from anywhere. MusB Research is the leading platform for decentralized virtual clinical trials, accelerating medical discovery through technology.",
     keywords: ["clinical trials", "virtual trials", "medical research", "decentralized trials", "patient recruitment", "health technology", "biotech"],
