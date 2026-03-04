@@ -10,7 +10,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ParticipantAuth, AdminAuth } from "@/lib/portal-auth";
 
 const links = [
-    { name: "Studies", href: "/studies" },
     { name: "Privacy / Data Use", href: "/privacy" },
     { name: "Help / FAQ", href: "/help" },
 ];
@@ -118,8 +117,6 @@ export default function Navbar() {
                     {/* Desktop Links */}
                     <div className="hidden md:flex items-center gap-4 lg:gap-8">
                         {links.map((link) => {
-                            // don't show the studies link when already on the homepage
-                            if (link.name === "Studies" && pathname === "/") return null;
                             return (
                                 <Link
                                     key={link.name}
@@ -163,7 +160,9 @@ export default function Navbar() {
                                     onClick={() => {
                                         ParticipantAuth.clear();
                                         AdminAuth.clear();
-                                        signOut({ callbackUrl: "/" });
+                                        signOut({ redirect: false }).then(() => {
+                                            window.location.href = "https://musbresearchwebsite-1.vercel.app/";
+                                        });
                                     }}
                                     className="p-2.5 rounded-full transition-all border border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-500 hover:bg-red-50"
                                     title="Sign Out"
@@ -221,8 +220,6 @@ export default function Navbar() {
                     {/* Navigation Links */}
                     <div className="flex flex-col gap-6 items-start flex-grow overflow-y-auto pt-2 custom-scrollbar">
                         {links.map((link) => {
-                            // hide "Studies" in the mobile menu when on the homepage
-                            if (link.name === "Studies" && pathname === "/") return null;
                             return (
                                 <Link
                                     key={link.name}
@@ -269,7 +266,9 @@ export default function Navbar() {
                                             setIsMobileMenuOpen(false);
                                             ParticipantAuth.clear();
                                             AdminAuth.clear();
-                                            signOut({ callbackUrl: "/" });
+                                            signOut({ redirect: false }).then(() => {
+                                                window.location.href = "https://musbresearchwebsite-1.vercel.app/";
+                                            });
                                         }}
                                         className="w-full py-4 bg-slate-900 border border-white/5 text-red-400 font-black uppercase tracking-[0.2em] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3"
                                     >

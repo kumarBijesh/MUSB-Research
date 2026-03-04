@@ -88,7 +88,8 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
 
     const handleSignOut = async () => {
         ParticipantAuth.clear();
-        await signOut({ callbackUrl: "/signin" });
+        await signOut({ redirect: false });
+        window.location.href = "https://musbresearchwebsite-1.vercel.app/";
     };
 
     return (

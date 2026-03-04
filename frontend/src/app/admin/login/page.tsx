@@ -24,7 +24,8 @@ export default function AdminLoginPage() {
             const ADMIN_ROLES = new Set(["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]);
             if (ADMIN_ROLES.has(u.role?.toUpperCase())) {
                 if (!s.accessToken) {
-                    signOut({ callbackUrl: "/admin/login" });
+                    await signOut({ redirect: false });
+                    window.location.href = "https://musbresearchwebsite-1.vercel.app/";
                     return;
                 }
 
@@ -100,7 +101,12 @@ export default function AdminLoginPage() {
         setLoading(false);
     };
 
-    if (status === "loading" || status === "authenticated") {
+    if (status === "authenticated") {
+        // Already authenticated - useEffect will handle redirect, don't render anything
+        return null;
+    }
+
+    if (status === "loading") {
         return (
             <div className="min-h-screen bg-transparent flex items-center justify-center">
                 <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />

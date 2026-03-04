@@ -32,7 +32,10 @@ function SignInContent() {
                 // If there's no accessToken in the NextAuth session, it's a stale/corrupted session.
                 // Sign them out of the shared cookie to fix it, instead of infinite looping.
                 if (!s.accessToken) {
-                    signOut({ callbackUrl: "/signin" });
+                    (async () => {
+                        await signOut({ redirect: false });
+                        window.location.href = "https://musbresearchwebsite-1.vercel.app/";
+                    })();
                     return;
                 }
 
@@ -355,7 +358,12 @@ function SignInContent() {
         setLoading(false);
     };
 
-    if (status === "loading" || status === "authenticated") {
+    if (status === "authenticated") {
+        // Already authenticated - useEffect will handle redirect, don't render anything
+        return null;
+    }
+
+    if (status === "loading") {
         return (
             <div className="min-h-screen bg-transparent flex items-center justify-center">
                 <div className="w-8 h-8 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />

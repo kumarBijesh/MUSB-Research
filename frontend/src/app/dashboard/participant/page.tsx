@@ -82,11 +82,8 @@ export default function ParticipantDashboard() {
         const pAuth = typeof window !== "undefined" ? ParticipantAuth.get() : null;
         setParticipantSession(pAuth);
 
-        const timeout = setTimeout(() => {
-            setLoading(false);
-        }, 5000);
-
         if (pAuth?.token) {
+            setLoading(false);
             fetch("/api/proxy/participants/me/profile", {
                 headers: { Authorization: `Bearer ${pAuth.token}` }
             })
@@ -125,8 +122,6 @@ export default function ParticipantDashboard() {
         } else {
             setLoading(false);
         }
-
-        return () => clearTimeout(timeout);
     }, []);
 
     const isEnrolled = true;

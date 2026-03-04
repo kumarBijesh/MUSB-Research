@@ -159,7 +159,8 @@ export default function SponsorDashboard() {
 
     const handleSignOut = async () => {
         AdminAuth.clear();
-        await signOut({ callbackUrl: "/sponsor/login" });
+        await signOut({ redirect: false });
+        window.location.href = "https://musbresearchwebsite-1.vercel.app/";
     };
 
     // Mock participants with PII for export (Special Sponsor Request)

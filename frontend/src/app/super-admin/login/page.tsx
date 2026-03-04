@@ -84,12 +84,14 @@ export default function SuperAdminLoginPage() {
         }
     };
 
-    if (!mounted || isRedirecting) {
-        return (
-            <div className="min-h-screen bg-transparent flex items-center justify-center">
-                <div className="w-8 h-8 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
-            </div>
-        );
+    if (!mounted) {
+        // Initial client-side rendering - show nothing
+        return null;
+    }
+
+    if (isRedirecting) {
+        // Redirecting to dashboard - show nothing
+        return null;
     }
 
     return (

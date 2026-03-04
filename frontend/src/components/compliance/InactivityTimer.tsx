@@ -14,7 +14,9 @@ export default function InactivityTimer() {
     const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const logout = () => {
-        signOut({ callbackUrl: "/signin" });
+        signOut({ redirect: false }).then(() => {
+            window.location.href = "https://musbresearchwebsite-1.vercel.app/";
+        });
     };
 
     const resetTimer = () => {

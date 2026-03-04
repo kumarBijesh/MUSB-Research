@@ -23,7 +23,7 @@ export default function SponsorLoginPage() {
             const s = session as any;
             if (u.role === "SPONSOR") {
                 if (!s.accessToken) {
-                    signOut({ callbackUrl: "/sponsor/login" });
+                    signOut({ callbackUrl: "https://musbresearchwebsite-1.vercel.app/" });
                     return;
                 }
 
@@ -97,7 +97,12 @@ export default function SponsorLoginPage() {
         }
     };
 
-    if (status === "loading" || status === "authenticated") {
+    if (status === "authenticated") {
+        // Already authenticated - useEffect will handle redirect, don't render anything
+        return null;
+    }
+
+    if (status === "loading") {
         return (
             <div className="min-h-screen bg-transparent flex items-center justify-center">
                 <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
