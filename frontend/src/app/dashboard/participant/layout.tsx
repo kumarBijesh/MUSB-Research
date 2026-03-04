@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import {
     LayoutDashboard, CheckSquare, Package, FileText, MessageSquare,
     FolderOpen, UserCircle, LogOut, Activity, Bell, HeartPulse, Home, Menu, X
@@ -25,6 +25,7 @@ const navItems = [
 export default function ParticipantLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
+    const { data: nextAuthSession, status: nextAuthStatus } = useSession();
 
     const [user, setUser] = useState<PortalUser | null>(null);
     const [authStatus, setAuthStatus] = useState<"loading" | "ok" | "denied">("loading");
@@ -42,15 +43,46 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
     ]);
 
     useEffect(() => {
+        // Still loading NextAuth — wait before deciding
+        if (nextAuthStatus === "loading") return;
+
+        // --- Primary check: ParticipantAuth sessionStorage (credentials login) ---
         const session = ParticipantAuth.get();
-        if (!session || session.user.role !== "PARTICIPANT") {
-            setAuthStatus("denied");
-            router.replace("/signin");
-        } else {
+        if (session && session.user.role === "PARTICIPANT") {
             setUser(session.user);
             setAuthStatus("ok");
+            return;
         }
-    }, [router]);
+
+        // --- Fallback: NextAuth session (Google OAuth users) ---
+        if (nextAuthStatus === "authenticated" && nextAuthSession?.user) {
+            const u = nextAuthSession.user as any;
+            const s = nextAuthSession as any;
+            if (u.role === "PARTICIPANT" && s.accessToken) {
+                // Auto-seed ParticipantAuth so future checks in this tab work
+                ParticipantAuth.save(s.accessToken, {
+                    id: u.id || "",
+                    name: u.name || u.email,
+                    email: u.email,
+                    role: "PARTICIPANT",
+                    image: u.image,
+                });
+                setUser({
+                    id: u.id || "",
+                    name: u.name || u.email,
+                    email: u.email,
+                    role: "PARTICIPANT",
+                    image: u.image,
+                });
+                setAuthStatus("ok");
+                return;
+            }
+        }
+
+        // No valid auth found — redirect to sign in
+        setAuthStatus("denied");
+        router.replace("/signin");
+    }, [nextAuthStatus, nextAuthSession, router]);
 
     // Close sidebar on navigation (mobile)
     useEffect(() => {

@@ -596,7 +596,7 @@ function SignInContent() {
                         {/* Google Sign In (no reCAPTCHA needed — Google handles it) */}
                         <button
                             type="button"
-                            onClick={() => signIn("google", { callbackUrl })}
+                            onClick={() => signIn("google", { callbackUrl: "/dashboard/participant" })}
                             className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 hover:border-slate-600 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-3 text-sm"
                         >
                             <svg className="w-5 h-5" viewBox="0 0 24 24">

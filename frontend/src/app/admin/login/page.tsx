@@ -18,33 +18,36 @@ export default function AdminLoginPage() {
     const { data: session, status } = useSession();
 
     useEffect(() => {
-        if (status === "authenticated" && session?.user) {
-            const u = session.user as any;
-            const s = session as any;
-            const ADMIN_ROLES = new Set(["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]);
-            if (ADMIN_ROLES.has(u.role?.toUpperCase())) {
-                if (!s.accessToken) {
-                    await signOut({ redirect: false });
-                    window.location.href = "https://musbresearchwebsite-1.vercel.app/";
-                    return;
-                }
+        const run = async () => {
+            if (status === "authenticated" && session?.user) {
+                const u = session.user as any;
+                const s = session as any;
+                const ADMIN_ROLES = new Set(["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]);
+                if (ADMIN_ROLES.has(u.role?.toUpperCase())) {
+                    if (!s.accessToken) {
+                        await signOut({ redirect: false });
+                        window.location.href = "https://musbresearchwebsite-1.vercel.app/";
+                        return;
+                    }
 
-                if (!AdminAuth.get()) {
-                    AdminAuth.save(s.accessToken, {
-                        id: u.id || "",
-                        name: u.name || u.email,
-                        email: u.email,
-                        role: u.role,
-                        image: u.image,
-                    });
+                    if (!AdminAuth.get()) {
+                        AdminAuth.save(s.accessToken, {
+                            id: u.id || "",
+                            name: u.name || u.email,
+                            email: u.email,
+                            role: u.role,
+                            image: u.image,
+                        });
+                    }
+                    router.replace("/admin");
+                } else if (u.role === "PARTICIPANT") {
+                    router.replace("/dashboard/participant");
+                } else if (u.role === "SPONSOR") {
+                    router.replace("/sponsor/dashboard");
                 }
-                router.replace("/admin");
-            } else if (u.role === "PARTICIPANT") {
-                router.replace("/dashboard/participant");
-            } else if (u.role === "SPONSOR") {
-                router.replace("/sponsor/dashboard");
             }
-        }
+        };
+        run();
     }, [status, session, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {

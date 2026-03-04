@@ -165,5 +165,29 @@ export const authOptions: NextAuthOptions = {
             }
             return session;
         },
+
+        // ── Auto-redirect to role-based dashboard after Google login ──────────
+        async redirect({ url, baseUrl }) {
+            // If already pointing to a portal path, honour it
+            if (url.startsWith(baseUrl)) {
+                const path = url.replace(baseUrl, "");
+                if (
+                    path.startsWith("/dashboard") ||
+                    path.startsWith("/admin") ||
+                    path.startsWith("/super-admin") ||
+                    path.startsWith("/sponsor")
+                ) {
+                    return url;
+                }
+                // If they were on /signin (callbackUrl default), just go back there;
+                // the useEffect on that page will detect the role and redirect
+                if (path.startsWith("/signin")) {
+                    return url;
+                }
+            }
+            // For any other case (e.g. landing on home "/"), send to /signin
+            // so the role-based redirect logic on signin page kicks in immediately
+            return baseUrl + "/signin";
+        },
     },
 };
