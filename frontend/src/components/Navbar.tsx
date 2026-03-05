@@ -285,8 +285,8 @@ export default function Navbar() {
                                 className="w-full py-5 bg-white text-slate-950 text-center font-black uppercase tracking-[0.3em] rounded-2xl shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 mb-4"
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
-                                <User size={20} />
-                                Sign In
+                                <LogIn size={20} />
+                                SIGN IN
                             </Link>
                         )}
 
