@@ -106,7 +106,7 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
 
     if (authStatus !== "ok") {
         return (
-            <div className="h-screen bg-[#0A1128] flex items-center justify-center">
+            <div className="h-screen bg-transparent flex items-center justify-center">
                 <div className="w-8 h-8 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
             </div>
         );
@@ -125,7 +125,7 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
     };
 
     return (
-        <div className="flex h-screen bg-[#0A1128] text-slate-200 overflow-hidden relative">
+        <div className="flex h-screen bg-transparent text-slate-200 overflow-hidden relative">
             {/* Mobile Sidebar Overlay */}
             {isSidebarOpen && (
                 <div
@@ -136,7 +136,7 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
 
             {/* ── Sidebar ── */}
             <aside className={`
-                fixed inset-y-0 left-0 z-[70] w-64 border-r border-slate-800 bg-slate-900/95 lg:bg-slate-900/50 flex flex-col shrink-0 
+                fixed inset-y-0 left-0 z-[70] w-64 border-r border-white/5 bg-[#0a1020]/95 lg:bg-[#0a1020]/80 backdrop-blur-xl flex flex-col shrink-0 
                 transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
                 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
             `}>
@@ -198,7 +198,7 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
 
             {/* ── Main Content ── */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <header className="h-16 border-b border-slate-800 bg-slate-900/30 flex items-center justify-between px-4 lg:px-8 shrink-0">
+                <header className="h-16 border-b border-white/5 bg-[#0A1128]/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-8 shrink-0">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => setIsSidebarOpen(true)}
@@ -313,7 +313,7 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto bg-[#0A1128] p-4 sm:p-8 custom-scrollbar">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar bg-transparent">
                     {children}
                 </main>
             </div>

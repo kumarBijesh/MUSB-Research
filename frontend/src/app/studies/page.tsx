@@ -62,7 +62,7 @@ export default function StudiesDirectory() {
 
     // match deployed site background color
     return (
-        <div className="min-h-screen bg-[#0A1128] pt-24 pb-20 px-6">
+        <div className="min-h-screen bg-transparent pt-24 pb-20 px-6">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-16 text-center max-w-3xl mx-auto">
                     <span className="px-4 py-2 bg-cyan-500/10 text-cyan-400 text-[13px] font-black uppercase tracking-widest rounded-full mb-6 inline-block border border-cyan-500/20">

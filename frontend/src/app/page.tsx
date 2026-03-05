@@ -7,26 +7,64 @@ export default function Home() {
     return (
         <div className="relative isolate overflow-hidden">
             {/* Hero Section */}
-            <section className="pt-32 pb-20 relative min-h-[85vh] md:min-h-screen flex items-center justify-center">
+            <section className="pt-32 pb-20 relative min-h-[85vh] md:min-h-screen flex items-center justify-center overflow-hidden">
+
+                {/* Lab background image with dark overlay – matching main MusB Research website */}
+                <div
+                    className="absolute inset-0 -z-10"
+                    style={{
+                        backgroundImage: "url('/hero-lab-bg.png')",
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                        backgroundRepeat: "no-repeat",
+                    }}
+                />
+                {/* Dark gradient overlay so text stays readable */}
+                <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#0a1128]/80 via-[#0a1128]/70 to-[#0a1128]/95" />
+
                 <Container className="text-center relative z-10 w-full">
-                    <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-100 to-cyan-400 animate-fade-in-up px-2">
+                    <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight mb-6 text-white animate-fade-in-up px-2">
                         Accelerating <br className="hidden sm:block" /> Medical Discovery
                     </h1>
-                    <p className="text-base sm:text-lg md:text-xl text-slate-400 max-w-prose md:max-w-2xl mx-auto mb-10 animate-fade-in-up stagger-3 px-4 sm:px-0">
+                    <p className="text-base sm:text-lg md:text-xl text-slate-200 max-w-prose md:max-w-2xl mx-auto mb-10 animate-fade-in-up stagger-3 px-4 sm:px-0">
                         MUSB Research connects patients, researchers, and biotech leaders in a unified virtual ecosystem.
                         Experience the future of decentralized clinical trials.
                     </p>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up stagger-4 w-full px-4 sm:px-0">
-                        <Link href="/about" className="w-full sm:w-auto px-8 py-4 bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white rounded-full font-semibold transition-all backdrop-blur-sm text-center justify-center flex items-center">
+                        <Link href="/studies" className="w-full sm:w-auto px-8 py-4 bg-cyan-400 hover:bg-cyan-300 text-slate-900 font-black uppercase tracking-widest rounded-full transition-all hover:-translate-y-1 shadow-lg hover:shadow-cyan-500/40 shadow-cyan-500/25 text-center justify-center flex items-center gap-2 group transform-gpu duration-300">
+                            Find a Clinical Study
+                            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        </Link>
+                        <Link href="/about" className="w-full sm:w-auto px-8 py-4 bg-transparent border border-white/30 hover:border-white/60 text-white hover:text-white rounded-full font-semibold transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-white/10 backdrop-blur-sm text-center justify-center flex items-center transform-gpu duration-300">
                             Explore Innovation
                         </Link>
                     </div>
                 </Container>
 
-                {/* Decorative elements - hidden on mobile to prevent scaling weirdness */}
+                {/* Decorative glow orbs – match main website */}
                 <div className="hidden md:block absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px] -z-10 animate-pulse pointer-events-none" />
                 <div className="hidden md:block absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] -z-10 pointer-events-none" />
+
+                {/* SCROLL indicator – matching main MusB Research website */}
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10 pointer-events-none select-none">
+                    {/* Pill indicator with sliding dot inside */}
+                    <div className="flex items-center gap-1.5">
+                        {/* Scroll pill / mouse shape */}
+                        <div className="w-7 h-4 rounded-full border border-cyan-400/60 flex items-center justify-start px-1 overflow-hidden">
+                            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-[scroll-dot_1.5s_ease-in-out_infinite]" />
+                        </div>
+                        {/* filled dot */}
+                        <div className="w-2.5 h-2.5 rounded-full bg-white/30" />
+                    </div>
+                    {/* Spaced SCROLL text */}
+                    <span className="text-[10px] font-bold tracking-[0.4em] text-white/50 uppercase">Scroll</span>
+                    {/* Animated vertical line */}
+                    <div className="relative w-px h-10 bg-white/10 overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1/2 bg-cyan-400 animate-[scroll-line_1.5s_ease-in-out_infinite]" />
+                    </div>
+                </div>
             </section>
+
 
             {/* Feature Cards */}
             <section className="py-20 md:py-24 bg-slate-900/20">
@@ -64,8 +102,8 @@ export default function Home() {
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] md:w-full md:h-full bg-cyan-500/[0.02] blur-[120px] pointer-events-none" />
                 <Container className="flex flex-col lg:flex-row items-center justify-between gap-12 relative z-10">
                     <div className="max-w-xl text-center lg:text-left">
-                        <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight mb-4 sm:mb-6 uppercase">Trusted by Global Institutions</h2>
-                        <p className="text-sm sm:text-base text-slate-400 leading-relaxed mb-6 sm:mb-8 mx-auto lg:mx-0 max-w-prose">
+                        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-4 sm:mb-6 uppercase">Trusted by Global Institutions</h2>
+                        <p className="text-sm sm:text-base text-slate-200 leading-relaxed mb-6 sm:mb-8 mx-auto lg:mx-0 max-w-prose">
                             Our platform is built on the pillars of data integrity and patient safety. We adhere to the world's most stringent regulatory standards to ensure clinical data is secure, anonymous, and actionable.
                         </p>
                         <div className="flex flex-wrap justify-center lg:justify-start gap-3 sm:gap-4">

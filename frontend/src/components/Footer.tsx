@@ -27,31 +27,53 @@ export default function Footer() {
     };
 
     return (
-        <footer className="relative overflow-hidden bg-slate-950 pt-20 pb-10">
+        <footer className="relative overflow-hidden bg-[#060d1f] pt-20 pb-10">
             {/* Background Gradient & Effects */}
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-[#0B1121] to-[#0f172a] opacity-80" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0A1128] via-[#07101f] to-[#050c1a]" />
             <div className="absolute inset-0 bg-noise opacity-5 mix-blend-overlay" />
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-900/20 blur-[120px] rounded-full -z-10" />
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-900/15 blur-[120px] rounded-full -z-10" />
+            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-violet-900/10 blur-[100px] rounded-full -z-10" />
+            {/* Subtle dot grid matching CosmicBackground */}
+            <div
+                className="absolute inset-0 opacity-[0.025]"
+                style={{
+                    backgroundImage: "radial-gradient(circle, rgba(6,182,212,0.8) 1px, transparent 1px)",
+                    backgroundSize: "60px 60px",
+                }}
+            />
 
             {/* Stars / Particles effect */}
             <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-cyan-400 rounded-full blur-[2px] opacity-60 animate-pulse" />
             <div className="absolute bottom-1/3 right-1/4 w-3 h-3 bg-purple-500 rounded-full blur-[4px] opacity-40 animate-pulse delay-700" />
             <div className="absolute bottom-10 left-10 w-2 h-2 bg-cyan-300 rounded-full blur-[2px] opacity-50 animate-pulse delay-1000" />
+            <div className="absolute top-1/3 right-1/3 w-1.5 h-1.5 bg-violet-400 rounded-full blur-[2px] opacity-50 animate-float" style={{ animationDelay: '1.5s' }} />
+            <div className="absolute bottom-1/4 left-1/3 w-2 h-2 bg-sky-400 rounded-full blur-[2px] opacity-45 animate-float" style={{ animationDelay: '2.5s' }} />
+            <div className="absolute top-16 right-1/5 w-1.5 h-1.5 bg-indigo-300 rounded-full blur-[2px] opacity-40 animate-pulse" style={{ animationDelay: '3s' }} />
 
             <div className="relative z-10 max-w-7xl mx-auto px-6">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 mb-20">
 
                     {/* LEFT COLUMN: Logo & Contact */}
                     <div className="lg:col-span-4 space-y-8">
-                        <div className="flex items-center gap-3 mb-6 w-max">
-                            <Image
-                                src="/musb research.png"
-                                alt="MUSB Research Logo"
-                                width={240}
-                                height={60}
-                                className="h-16 w-auto object-contain"
-                            />
-                        </div>
+                        <Link href="/" className="inline-block mb-6 group">
+                            <div className="
+                                flex items-center justify-center
+                                bg-[#0d1b35] border border-white/10
+                                rounded-xl px-5 py-3 w-max
+                                transition-all duration-300 ease-out
+                                group-hover:scale-105 group-hover:border-cyan-500/40
+                                group-hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]
+                                transform-gpu
+                            ">
+                                <Image
+                                    src="/musb research.png"
+                                    alt="MUSB Research Logo"
+                                    width={200}
+                                    height={52}
+                                    className="h-12 w-auto object-contain"
+                                />
+                            </div>
+                        </Link>
 
                         <div className="space-y-4">
                             <div className="flex items-start gap-3 group">
@@ -112,7 +134,8 @@ export default function Footer() {
                                     { Icon: Youtube, href: "https://youtube.com/@MusB-v5n" },
                                     { Icon: Facebook, href: "https://www.facebook.com/profile.php?id=61579407750169" },
                                     { Icon: Instagram, href: "https://www.instagram.com/musbresearch/?next=%2F" },
-                                    { Icon: Linkedin, href: "https://www.linkedin.com/company/musb-res/" }
+                                    { Icon: Linkedin, href: "https://www.linkedin.com/company/musb-res/" },
+                                    { Icon: MessageCircle, href: "https://wa.me/18134190781" }
                                 ].map(({ Icon, href }, i) => (
                                     <Link key={i} href={href} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-slate-900/50 border border-white/5 text-slate-400 hover:text-white hover:bg-cyan-600 hover:border-cyan-500 transition-all">
                                         <Icon size={18} />

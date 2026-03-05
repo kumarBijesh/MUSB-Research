@@ -90,14 +90,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // Show spinner while loading or redirecting
     if (authStatus !== "ok") {
         return (
-            <div className="h-screen bg-[#0A1128] flex items-center justify-center">
+            <div className="h-screen bg-transparent flex items-center justify-center">
                 <div className="w-8 h-8 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="flex h-screen bg-[#0A1128] text-slate-200 overflow-hidden relative">
+        <div className="flex h-screen bg-transparent text-slate-200 overflow-hidden relative">
             {/* Mobile Sidebar Overlay */}
             {isSidebarOpen && (
                 <div
@@ -239,7 +239,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1 overflow-y-auto bg-[#0A1128] p-8 custom-scrollbar">
+                <main className="flex-1 overflow-y-auto p-8 custom-scrollbar" style={{ background: 'transparent' }}>
                     {children}
                 </main>
             </div>
