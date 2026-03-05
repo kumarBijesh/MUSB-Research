@@ -356,6 +356,13 @@ async def update_password(
             detail="Accounts managed via Google cannot update passwords directly. Please use Google Account settings."
         )
 
+    # Only Participants can manage their own credentials
+    if user.get("role") != "PARTICIPANT":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password management is restricted for your role. Please contact the administrator."
+        )
+
     # Verify Current Password
     if not verify_password(body.currentPassword, user["passwordHash"]):
          raise HTTPException(
@@ -407,6 +414,13 @@ async def reset_password(request: Request, body: PasswordResetRequest, db=Depend
     user = await db["users"].find_one({"email": body.email})
     if not user:
         raise HTTPException(status_code=404, detail="User account not found.")
+
+    # Only Participants can reset their own credentials
+    if user.get("role") != "PARTICIPANT":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password reset is restricted for your role. Please contact the administrator."
+        )
         
     # 3. Hash new password and update
     new_hash = get_password_hash(body.newPassword)

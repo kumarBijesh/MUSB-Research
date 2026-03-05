@@ -120,8 +120,8 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
 
     const handleSignOut = async () => {
         ParticipantAuth.clear();
-        await signOut({ redirect: false });
-        window.location.href = "https://musbresearchwebsite-1.vercel.app/";
+        const baseUrl = window.location.origin;
+        await signOut({ callbackUrl: baseUrl });
     };
 
     return (
@@ -172,8 +172,8 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
 
                 <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
                     {navItems.map((item) => {
-                        const isActive = item.href === "/dashboard/participant"
-                            ? pathname === "/dashboard/participant"
+                        const isActive = item.href === "/"
+                            ? pathname === "/"
                             : pathname.startsWith(item.href);
                         return (
                             <Link key={item.name} href={item.href}
@@ -198,7 +198,7 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
 
             {/* ── Main Content ── */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <header className="h-16 border-b border-white/5 bg-[#0A1128]/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-8 shrink-0">
+                <header className="h-16 border-b border-white/5 bg-[#0A1128]/95 backdrop-blur-md flex items-center justify-between px-4 lg:px-8 shrink-0 z-50 relative">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => setIsSidebarOpen(true)}

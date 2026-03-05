@@ -30,11 +30,11 @@ function SignInContent() {
 
             if (u.role === "PARTICIPANT") {
                 // If there's no accessToken in the NextAuth session, it's a stale/corrupted session.
-                // Sign them out of the shared cookie to fix it, instead of infinite looping.
                 if (!s.accessToken) {
                     (async () => {
                         await signOut({ redirect: false });
-                        window.location.href = "https://musbresearchwebsite-1.vercel.app/";
+                        const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+                        window.location.href = appUrl;
                     })();
                     return;
                 }
@@ -51,8 +51,14 @@ function SignInContent() {
                 router.replace(callbackUrl);
             } else if (u.role === "SPONSOR") {
                 router.replace("/sponsor/dashboard");
-            } else if (u.role === "ADMIN" || u.role === "COORDINATOR") {
+            } else if (["COORDINATOR", "PI", "DATA_MANAGER"].includes(u.role)) {
                 router.replace("/admin");
+            } else if (u.role === "ADMIN" || u.role === "SUPER_ADMIN") {
+                // If they somehow got a shared cookie session, sign them out as they are on the wrong page
+                signOut({ redirect: false }).then(() => {
+                    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+                    window.location.href = appUrl;
+                });
             }
         }
     }, [status, session, router, callbackUrl]);
@@ -168,22 +174,19 @@ function SignInContent() {
                 const tokenData = await res.json();
                 const role: string = tokenData.role?.toUpperCase() || "";
 
-                // Universal login handler
+                // Universal login handler (Explicit Role Filtering)
                 if (role !== "PARTICIPANT") {
-                    // Instead of blocking them, we will log them in and redirect to their respective portal
                     if (role === "SUPER_ADMIN") {
-                        const { SuperAdminAuth } = await import("@/lib/portal-auth");
-                        SuperAdminAuth.save(tokenData.access_token, {
-                            id: tokenData.sub || "",
-                            name: email,
-                            email: email,
-                            role
-                        });
-                        await signIn("credentials", { email, password, allowedRole: "SUPER_ADMIN", redirect: false });
-                        router.push("/super-admin");
+                        setError("Super Admins must use the Master Control Portal to sign in.");
+                        resetCaptcha();
                         setLoading(false);
                         return;
-                    } else if (["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"].includes(role)) {
+                    } else if (role === "ADMIN") {
+                        setError("Administrators must use the Admin Console to sign in.");
+                        resetCaptcha();
+                        setLoading(false);
+                        return;
+                    } else if (["COORDINATOR", "PI", "DATA_MANAGER"].includes(role)) {
                         const { AdminAuth } = await import("@/lib/portal-auth");
                         AdminAuth.save(tokenData.access_token, {
                             id: tokenData.sub || "",
@@ -191,7 +194,7 @@ function SignInContent() {
                             email: email,
                             role
                         });
-                        await signIn("credentials", { email, password, allowedRole: "ADMIN,COORDINATOR,PI,DATA_MANAGER", redirect: false });
+                        await signIn("credentials", { email, password, allowedRole: role, redirect: false });
                         router.push("/admin");
                         setLoading(false);
                         return;
@@ -403,11 +406,11 @@ function SignInContent() {
                                     </span>
                                 </div>
                             </div>
-                            <h1 className="text-3xl font-black text-white italic tracking-tight mb-2">
-                                {isLogin ? "Welcome Back." : "Join the Future."}
+                            <h1 className="text-4xl font-black text-white italic tracking-tighter mb-2">
+                                {isLogin ? "Welcome Back." : "Start Journey."}
                             </h1>
-                            <p className="text-slate-500 text-sm font-medium">
-                                {isLogin ? "Participant portal — enter your credentials." : "Create your participant account."}
+                            <p className="text-slate-500 text-sm font-bold uppercase tracking-widest opacity-60">
+                                {isLogin ? "Authorized Access Only" : "Participant Enrollment"}
                             </p>
                         </div>
 
@@ -474,7 +477,7 @@ function SignInContent() {
                                     {isLogin && (
                                         <div className="flex justify-end mt-1">
                                             <Link href="/forgot-password?role=PARTICIPANT" className="text-xs font-medium text-cyan-400 hover:text-cyan-300 transition-colors">
-                                                Forgot Password?
+                                                Forgot Participant Password?
                                             </Link>
                                         </div>
                                     )}

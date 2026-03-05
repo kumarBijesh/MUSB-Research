@@ -78,8 +78,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const handleSignOut = async () => {
         AdminAuth.clear(); // Clear only THIS TAB's admin session
-        await signOut({ redirect: false });
-        window.location.href = "https://musbresearchwebsite-1.vercel.app/";
+        const baseUrl = window.location.origin;
+        await signOut({ callbackUrl: baseUrl });
     };
 
     // Login page: render without the dashboard shell
