@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "@/lib/env"; // Validation for required environment variables
 import InactivityTimer from "@/components/compliance/InactivityTimer";
 import DeviceAdjuster from "@/components/DeviceAdjuster";
 
@@ -59,6 +60,13 @@ export default async function RootLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    // 🛡️ Global Server-Side Console suppression for production protection
+    if (process.env.NODE_ENV === "production") {
+        console.log = () => { };
+        console.info = () => { };
+        console.debug = () => { };
+    }
+
     const cookieStore = await cookies();
     const perfMode = cookieStore.get("perf-mode")?.value || "high";
     const deviceType = cookieStore.get("device-type")?.value || "desktop";
@@ -69,6 +77,15 @@ export default async function RootLayout({
 
     return (
         <html lang="en" className={`${performanceClasses} ${deviceClasses}`}>
+            {process.env.NODE_ENV === "production" && (
+                <head>
+                    <script
+                        dangerouslySetInnerHTML={{
+                            __html: `console.log = function() {}; console.info = function() {}; console.debug = function() {};`
+                        }}
+                    />
+                </head>
+            )}
             <body className={`${inter.className} min-h-[100dvh] w-full overflow-x-hidden bg-[#0A1128] text-white selection:bg-cyan-500/30 antialiased`}>
                 <CosmicBackground />
                 <DeviceAdjuster />

@@ -1,14 +1,24 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { z } from "zod";
+
+const schema = z.object({
+    email: z.string().email(),
+    type: z.enum(["SCREENER_RESULT", "OTP", "ALERT"]),
+    studyTitle: z.string().optional(),
+    status: z.enum(["eligible", "maybe", "ineligible"]).optional(),
+});
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { email, type, studyTitle, status } = body;
+        const parsed = schema.safeParse(body);
 
-        if (!email) {
-            return NextResponse.json({ error: "Email is required" }, { status: 400 });
+        if (!parsed.success) {
+            return NextResponse.json({ error: "Invalid input", details: parsed.error.issues }, { status: 400 });
         }
+
+        const { email, type, studyTitle, status } = parsed.data;
 
         // SMTP configuration - must be set in environment
         const smtpHost = process.env.SMTP_HOST;

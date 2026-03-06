@@ -1,3 +1,4 @@
+"use client";
 
 import { ArrowRight, Activity, ShieldCheck, Zap, Globe, Users } from "lucide-react";
 import Link from "next/link";
@@ -23,10 +24,10 @@ export default function Home() {
                 <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#0a1128]/80 via-[#0a1128]/70 to-[#0a1128]/95" />
 
                 <Container className="text-center relative z-10 w-full">
-                    <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight mb-6 text-white animate-fade-in-up px-2">
+                    <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tight mb-4 md:mb-6 text-white animate-fade-in-up px-2 leading-[1.1] md:leading-none">
                         Accelerating <br className="hidden sm:block" /> Medical Discovery
                     </h1>
-                    <p className="text-base sm:text-lg md:text-xl text-slate-200 max-w-prose md:max-w-2xl mx-auto mb-10 animate-fade-in-up stagger-3 px-4 sm:px-0">
+                    <p className="text-sm sm:text-lg md:text-xl text-slate-200 max-w-prose md:max-w-2xl mx-auto mb-8 md:mb-10 animate-fade-in-up stagger-3 px-6 sm:px-0 opacity-90">
                         MUSB Research connects patients, researchers, and biotech leaders in a unified virtual ecosystem.
                         Experience the future of decentralized clinical trials.
                     </p>
@@ -46,28 +47,34 @@ export default function Home() {
                 <div className="hidden md:block absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] -z-10 pointer-events-none" />
 
                 {/* SCROLL indicator – matching main MusB Research website */}
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10 pointer-events-none select-none">
+                <button
+                    onClick={() => {
+                        const features = document.getElementById('features');
+                        features?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="hidden sm:flex absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10 select-none cursor-pointer group/scroll hover:opacity-100 transition-opacity opacity-80"
+                >
                     {/* Pill indicator with sliding dot inside */}
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                         {/* Scroll pill / mouse shape */}
-                        <div className="w-7 h-4 rounded-full border border-cyan-400/60 flex items-center justify-start px-1 overflow-hidden">
-                            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-[scroll-dot_1.5s_ease-in-out_infinite]" />
+                        <div className="w-8 h-4.5 rounded-full border border-cyan-400/40 group-hover:border-cyan-400/80 flex items-center justify-start px-1.5 overflow-hidden transition-colors">
+                            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-[scroll-dot_1.8s_ease-in-out_infinite] shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
                         </div>
-                        {/* filled dot */}
-                        <div className="w-2.5 h-2.5 rounded-full bg-white/30" />
+                        {/* static dot */}
+                        <div className="w-2 h-2 rounded-full bg-white/20 group-hover:bg-white/40 transition-colors" />
                     </div>
                     {/* Spaced SCROLL text */}
-                    <span className="text-[10px] font-bold tracking-[0.4em] text-white/50 uppercase">Scroll</span>
+                    <span className="text-[10px] font-black tracking-[0.5em] text-white/40 group-hover:text-white/70 uppercase transition-colors">Scroll</span>
                     {/* Animated vertical line */}
-                    <div className="relative w-px h-10 bg-white/10 overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1/2 bg-cyan-400 animate-[scroll-line_1.5s_ease-in-out_infinite]" />
+                    <div className="relative w-[1.5px] h-12 bg-white/5 overflow-hidden rounded-full">
+                        <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-transparent via-cyan-400 to-transparent animate-[scroll-line_2s_ease-in-out_infinite]" />
                     </div>
-                </div>
+                </button>
             </section>
 
 
             {/* Feature Cards */}
-            <section className="py-20 md:py-24 bg-slate-900/20">
+            <section id="features" className="py-20 md:py-24 bg-slate-900/20">
                 <Container className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                     {[
                         {

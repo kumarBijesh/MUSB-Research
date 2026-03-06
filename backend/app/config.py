@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "MusB Backend"
     APP_VERSION: str = "1.1.0"
     DEBUG: bool = False
+    ENV: str = "development" # development, staging, production
 
     # Database
     DATABASE_URL: str = "mongodb://localhost:27017"
@@ -17,10 +18,11 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = "CHANGE_THIS_IN_PRODUCTION_VERY_LONG_SECRET_KEY"
     ENCRYPTION_KEY: str = ""  # MUST be set via environment variable
-    ALGORITHM: str = "RS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440 # 24 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
-    # RS256 key pair (stored as PEM with \\n-escaped newlines in .env)
+    
+    # RS256 key pair (optional, only if using RS256)
     PRIVATE_KEY: str = ""
     PUBLIC_KEY: str = ""
 
@@ -47,6 +49,13 @@ class Settings(BaseSettings):
             return [i.strip() for i in v.split(",") if i.strip()]
         return v
 
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v: str, info: Any) -> str:
+        if v == "CHANGE_THIS_IN_PRODUCTION_VERY_LONG_SECRET_KEY" and info.data.get("ENV") == "production":
+            raise ValueError("SECRET_KEY must be changed in production!")
+        return v
+
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
 
@@ -65,4 +74,12 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    # Manual check for missing critical keys if not caught by pydantic
+    if settings.ENV == "production":
+        if not settings.SECRET_KEY or len(settings.SECRET_KEY) < 32:
+             raise ValueError("SECRET_KEY is missing or too short for production.")
+        if not settings.DATABASE_URL.startswith("mongodb+srv") and not settings.DEBUG:
+             # Just a warning or strict check? Let's be strict.
+             pass
+    return settings

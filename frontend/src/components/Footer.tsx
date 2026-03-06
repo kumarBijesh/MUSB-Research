@@ -226,10 +226,11 @@ export default function Footer() {
                             <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">GDPR Ready</div>
                             <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">21 CFR Part 11</div>
                         </div>
-                        <div className="flex flex-wrap justify-center md:justify-end gap-6">
-                            <Link href="/privacy" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Privacy Policy</Link>
-                            <Link href="/terms" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Terms of Use</Link>
-                            <Link href="/cookies" className="text-slate-600 hover:text-slate-400 text-[13px] font-bold uppercase tracking-widest transition-colors">Cookie Settings</Link>
+                        <div className="flex flex-wrap justify-center md:justify-end gap-6 lg:gap-8">
+                            <Link href="/privacy" className="text-slate-400 hover:text-white text-[13px] font-black uppercase tracking-widest transition-colors">Privacy / Data Use</Link>
+                            <Link href="/help" className="text-slate-400 hover:text-white text-[13px] font-black uppercase tracking-widest transition-colors">Help / FAQ</Link>
+                            <Link href="/terms" className="text-slate-500 hover:text-slate-300 text-[11px] font-bold uppercase tracking-widest transition-colors">Terms of Use</Link>
+                            <Link href="/cookies" className="text-slate-500 hover:text-slate-300 text-[11px] font-bold uppercase tracking-widest transition-colors">Cookie Settings</Link>
                         </div>
                     </div>
                 </div>
