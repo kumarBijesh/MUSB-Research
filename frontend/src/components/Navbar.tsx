@@ -92,14 +92,14 @@ export default function Navbar() {
                 </div>
 
                 {/* Deskrop Nav Links - Center part */}
-                <div className="hidden xl:flex items-center gap-7 2xl:gap-10">
+                <div className="hidden xl:flex items-center gap-6 2xl:gap-11">
                     {links.map((link) => {
                         const isActive = pathname === link.href || (link.hasDropdown && pathname.startsWith(link.href));
                         return (
-                            <div key={link.name} className="relative group/nav h-full flex items-center">
+                            <div key={link.name} className="relative group/nav h-full flex items-center shrink-0">
                                 <Link
                                     href={link.href}
-                                    className={`text-[11px] font-black leading-tight tracking-[0.12em] transition-all duration-300 flex items-center gap-1.5 py-8 ${isActive ? "text-cyan-600" : "text-slate-900 hover:text-cyan-600"
+                                    className={`text-[11px] font-black leading-tight tracking-[0.12em] whitespace-nowrap transition-all duration-300 flex items-center gap-1.5 py-8 ${isActive ? "text-cyan-600" : "text-slate-900 hover:text-cyan-600"
                                         }`}
                                 >
                                     {link.name}
