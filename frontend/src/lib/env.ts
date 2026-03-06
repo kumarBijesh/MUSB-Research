@@ -23,12 +23,13 @@ const _env = envSchema.safeParse({
 });
 
 if (!_env.success) {
-    if (process.env.NODE_ENV === "production") {
-        console.error("❌ Critical: Environment variable validation failed. The application cannot start.");
-    } else {
-        console.error("❌ Invalid environment variables:", _env.error.format());
-    }
-    throw new Error("Invalid environment variables. Check your .env file.");
+    const errorDetails = JSON.stringify(_env.error.format(), null, 2);
+    console.error("❌ Invalid environment variables during build/runtime:");
+    console.error(errorDetails);
+
+    // In production build environments (like Vercel), we need to throw 
+    // to prevent a broken deployment, but we should provide the reason.
+    throw new Error(`Environment variable validation failed. Missing or invalid keys: ${Object.keys(_env.error.format()).filter(k => k !== "_errors").join(", ")}`);
 }
 
 export const env = _env.data;
